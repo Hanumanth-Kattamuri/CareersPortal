@@ -1,0 +1,232 @@
+/* ============================================
+   GAMYAM THEME - GLOBAL STYLES
+   Dark Navy + Orange Professional Theme
+   ============================================ */
+
+:root {
+  --gamyam-dark-bg: #0a0a0a;
+  --gamyam-dark-card: #1a1a1a;
+  --gamyam-dark-gray: #2a2a2a;
+  --gamyam-orange: #FF6B35;
+  --gamyam-orange-light: #FF8C42;
+  --gamyam-text-light: #e0e0e0;
+  --gamyam-text-muted: #b0b0b0;
+  --gamyam-text-dim: #888888;
+  --gamyam-border: #333333;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--gamyam-dark-bg);
+  color: var(--gamyam-text-light);
+  margin: 0;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   INPUTS & FORM ELEMENTS
+   ============================================ */
+
+input, select, textarea {
+  background: var(--gamyam-dark-bg);
+  border: 1px solid var(--gamyam-border);
+  color: var(--gamyam-text-light);
+  font-family: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--gamyam-orange) !important;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
+  outline: none;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+button {
+  transition: all 0.3s ease;
+  cursor: pointer;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gamyam-dark-card);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gamyam-orange);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gamyam-orange-light);
+}
+
+/* ============================================
+   CARDS & CONTAINERS
+   ============================================ */
+
+.card {
+  background: var(--gamyam-dark-card);
+  border: 1px solid var(--gamyam-border);
+  color: var(--gamyam-text-light);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: var(--gamyam-orange);
+  box-shadow: 0 4px 20px rgba(255, 107, 53, 0.2);
+}
+
+/* ============================================
+   TEXT COLORS
+   ============================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--gamyam-text-light);
+}
+
+p {
+  color: var(--gamyam-text-muted);
+}
+
+a {
+  color: var(--gamyam-orange);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+a:hover {
+  color: var(--gamyam-orange-light);
+}
+
+/* ============================================
+   BADGES & TAGS
+   ============================================ */
+
+.badge {
+  background: var(--gamyam-orange);
+  color: var(--gamyam-dark-bg);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-pending {
+  background: rgba(255, 107, 53, 0.2);
+  color: var(--gamyam-orange);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-accepted {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-rejected {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 1200px) {
+  .formWrapper {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .sidebar {
+    position: relative !important;
+    top: auto !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .jobGrid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .contentGrid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .inputRow {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+  button, .sidebar {
+    display: none;
+  }
+}

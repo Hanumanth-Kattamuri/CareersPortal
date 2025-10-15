@@ -1,0 +1,434 @@
+import React, { useState, useMemo } from "react";
+import axios from "axios";
+
+const GAMYAM_COLORS = {
+  darkBg: '#0f0f10',
+  darkCard: '#2c2c2d',
+  darkGray: '#4a4a4b',
+  orange: '#ff7c26',
+  orangeLight: '#ff7c26',
+  textLight: '#ffffff',
+  textMuted: '#b2b2b3',
+  textDim: '#8e8e8e',
+  border: '#4a4a4b',
+};
+
+function ApplicationsTable({ applications, onRefresh }) {
+  const [selectedApp, setSelectedApp] = useState(null);
+  const [rejecting, setRejecting] = useState(null);
+  const [accepting, setAccepting] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterRole, setFilterRole] = useState("all");
+
+  const handleViewResume = async (appId, appName) => {
+    try {
+      const response = await axios.get(
+        `http://localhost:5000/api/applications/${appId}/resume`,
+        { responseType: 'blob' }
+      );
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
+    } catch (err) {
+      console.error('Error viewing resume:', err);
+      alert(`Failed to load resume for ${appName}`);
+    }
+  };
+
+  const handleReject = async (app) => {
+    if (!window.confirm(`Reject ${app.name}'s application?`)) return;
+
+    setRejecting(app._id);
+    try {
+      await axios.post(`http://localhost:5000/api/applications/${app._id}/reject`);
+      alert(`Rejection email sent to ${app.email}`);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error("Error rejecting application:", err);
+      alert("Failed to reject application");
+    }
+    setRejecting(null);
+  };
+
+  const handleAccept = async (app) => {
+    if (!window.confirm(`Accept ${app.name}'s application?`)) return;
+
+    setAccepting(app._id);
+    try {
+      await axios.post(`http://localhost:5000/api/applications/${app._id}/accept`);
+      alert(`Acceptance email sent to ${app.email}`);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error("Error accepting application:", err);
+      alert("Failed to accept application");
+    }
+    setAccepting(null);
+  };
+
+  const uniqueRoles = useMemo(() => {
+    const roles = applications.map(app => app.jobTitle).filter(role => role && role !== "NA");
+    return [...new Set(roles)].sort();
+  }, [applications]);
+
+  const filteredApplications = applications.filter(app => {
+    const statusMatch = filterStatus === "all" || app.status === filterStatus;
+    const roleMatch = filterRole === "all" || app.jobTitle === filterRole;
+    return statusMatch && roleMatch;
+  });
+
+  const getStatusStyle = (status) => {
+    const styles = {
+      rejected: { background: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
+      accepted: { background: "rgba(76, 175, 80, 0.2)", color: "#51cf66" },
+      pending: { background: "rgba(255, 107, 53, 0.2)", color: GAMYAM_COLORS.orange }
+    };
+    return styles[status] || styles.pending;
+  };
+
+  return (
+    <div style={styles.container}>
+      {/* Filters */}
+      <div style={styles.filterContainer}>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Filter by Status:</label>
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            style={styles.selectStyle}
+          >
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Filter by Role:</label>
+          <select 
+            value={filterRole} 
+            onChange={(e) => setFilterRole(e.target.value)}
+            style={styles.selectStyle}
+          >
+            <option value="all">All Roles</option>
+            {uniqueRoles.map((role, index) => (
+              <option key={index} value={role}>{role}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={styles.filterInfo}>
+          Showing {filteredApplications.length} of {applications.length} applications
+        </div>
+      </div>
+
+      {filteredApplications.length === 0 ? (
+        <p style={{ textAlign: "center", padding: "20px", color: GAMYAM_COLORS.textDim }}>No applications found.</p>
+      ) : (
+        <table style={styles.table}>
+          <thead style={styles.thead}>
+            <tr>
+              <th style={styles.th}>Name</th>
+              <th style={styles.th}>Email</th>
+              <th style={styles.th}>Phone</th>
+              <th style={styles.th}>Position</th>
+              <th style={styles.th}>Resume</th>
+              <th style={styles.th}>Skills</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredApplications.map((app) => (
+              <tr key={app._id} style={styles.tr}>
+                <td style={styles.td}>{app.name || "NA"}</td>
+                <td style={styles.td}>{app.email || "NA"}</td>
+                <td style={styles.td}>{app.phone || "NA"}</td>
+                <td style={styles.td}>
+                  <span style={styles.roleTag}>{app.jobTitle || "NA"}</span>
+                </td>
+                <td style={styles.td}>
+                  {app.resumePDF && app.resumePDF.data ? (
+                    <button 
+                      onClick={() => handleViewResume(app._id, app.name)}
+                      style={styles.resumeBtn}
+                    >
+                      📄 View PDF
+                    </button>
+                  ) : (
+                    <span style={{ color: GAMYAM_COLORS.textDim, fontSize: "13px" }}>No Resume</span>
+                  )}
+                </td>
+                <td style={styles.td}>{app.skillset || "NA"}</td>
+                <td style={styles.td}>
+                  <span style={{ ...styles.statusBadge, ...getStatusStyle(app.status) }}>
+                    {app.status === "rejected" ? "Rejected" : app.status === "accepted" ? "Accepted" : "Pending"}
+                  </span>
+                </td>
+                <td style={styles.td}>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button style={styles.btn} onClick={() => setSelectedApp(app)}>View</button>
+                    {app.status !== "rejected" && (
+                      <button 
+                        style={{...styles.btn, ...styles.rejectBtn}} 
+                        onClick={() => handleReject(app)}
+                        disabled={rejecting === app._id}
+                      >
+                        {rejecting === app._id ? "..." : "Reject"}
+                      </button>
+                    )}
+                    {app.status !== "accepted" && (
+                      <button 
+                        style={{...styles.btn, background: GAMYAM_COLORS.orange}} 
+                        onClick={() => handleAccept(app)}
+                        disabled={accepting === app._id}
+                      >
+                        {accepting === app._id ? "..." : "Accept"}
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Modal */}
+      {selectedApp && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContainer}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Application Details</h2>
+              <button style={styles.closeBtn} onClick={() => setSelectedApp(null)}>✕</button>
+            </div>
+            
+            <div style={styles.modalContent}>
+              <div style={styles.detailSection}>
+                <h3 style={styles.sectionTitle}>Personal Information</h3>
+                <p style={styles.detailItem}><strong>Name:</strong> {selectedApp.name}</p>
+                <p style={styles.detailItem}><strong>Email:</strong> {selectedApp.email}</p>
+                <p style={styles.detailItem}><strong>Phone:</strong> {selectedApp.phone}</p>
+                <p style={styles.detailItem}><strong>Location:</strong> {selectedApp.location}</p>
+              </div>
+
+              <div style={styles.detailSection}>
+                <h3 style={styles.sectionTitle}>Professional Information</h3>
+                <p style={styles.detailItem}><strong>Position:</strong> {selectedApp.jobTitle}</p>
+                <p style={styles.detailItem}><strong>Skills:</strong> {selectedApp.skillset}</p>
+                <p style={styles.detailItem}><strong>Project:</strong> {selectedApp.project}</p>
+              </div>
+
+              <div style={styles.detailSection}>
+                <h3 style={styles.sectionTitle}>Status</h3>
+                <span style={{ ...styles.statusBadge, ...getStatusStyle(selectedApp.status) }}>
+                  {selectedApp.status === "rejected" ? "Rejected" : selectedApp.status === "accepted" ? "Accepted" : "Pending"}
+                </span>
+              </div>
+            </div>
+
+            <div style={styles.modalFooter}>
+              {selectedApp.status !== "rejected" && (
+                <button 
+                  style={{...styles.btn, ...styles.rejectBtn}} 
+                  onClick={() => { handleReject(selectedApp); setSelectedApp(null); }}
+                >
+                  Reject
+                </button>
+              )}
+              {selectedApp.status !== "accepted" && (
+                <button 
+                  style={{...styles.btn, background: GAMYAM_COLORS.orange}} 
+                  onClick={() => { handleAccept(selectedApp); setSelectedApp(null); }}
+                >
+                  Accept
+                </button>
+              )}
+              <button style={styles.btn} onClick={() => setSelectedApp(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const styles = {
+  container: {
+    background: GAMYAM_COLORS.darkCard,
+    borderRadius: "0",
+    padding: "25px",
+    boxShadow: "0 3px 15px rgba(0,0,0,0.3)",
+    overflowX: "auto",
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  filterContainer: {
+    display: "flex",
+    gap: "20px",
+    marginBottom: "20px",
+    flexWrap: "wrap",
+    alignItems: "center",
+    padding: "16px",
+    background: GAMYAM_COLORS.darkGray,
+    borderRadius: "0",
+  },
+  filterGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  filterLabel: {
+    fontWeight: "600",
+    fontSize: "14px",
+    color: GAMYAM_COLORS.textLight,
+    whiteSpace: "nowrap",
+  },
+  selectStyle: {
+    padding: "8px 12px",
+    borderRadius: "0",
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+    fontSize: "14px",
+    background: GAMYAM_COLORS.darkBg,
+    color: GAMYAM_COLORS.textLight,
+    cursor: "pointer",
+    minWidth: "150px",
+  },
+  filterInfo: {
+    marginLeft: "auto",
+    fontSize: "13px",
+    color: GAMYAM_COLORS.textDim,
+    fontWeight: "500",
+  },
+  table: { width: "100%", borderCollapse: "collapse" },
+  thead: { backgroundColor: GAMYAM_COLORS.darkGray },
+  th: { 
+    textAlign: "left", 
+    padding: "12px 16px", 
+    fontSize: "14px", 
+    fontWeight: "600",
+    color: GAMYAM_COLORS.textLight,
+    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  td: { 
+    padding: "12px 16px", 
+    fontSize: "14px",
+    color: GAMYAM_COLORS.textMuted,
+    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  tr: { },
+  roleTag: {
+    background: GAMYAM_COLORS.darkGray,
+    color: "#ffffff",
+    padding: "4px 10px",
+    borderRadius: "0",
+    fontSize: "12px",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+  resumeBtn: {
+    padding: "6px 12px",
+    background: GAMYAM_COLORS.orange,
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "0",
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "500",
+  },
+  statusBadge: {
+    padding: "4px 12px",
+    borderRadius: "0",
+    fontSize: "12px",
+    fontWeight: "600",
+    display: "inline-block",
+  },
+  btn: {
+    padding: "6px 12px",
+    background: GAMYAM_COLORS.orange,
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "0",
+    cursor: "pointer",
+    fontSize: "13px",
+    fontWeight: "500",
+  },
+  rejectBtn: {
+    background: "#ff2727",
+  },
+  modalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0,0,0,0.7)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+    padding: "20px",
+  },
+  modalContainer: {
+    background: GAMYAM_COLORS.darkCard,
+    borderRadius: "0",
+    width: "90%",
+    maxWidth: "600px",
+    maxHeight: "80vh",
+    display: "flex",
+    flexDirection: "column",
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "20px 24px",
+    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  modalTitle: {
+    fontSize: "20px",
+    fontWeight: "700",
+    color: GAMYAM_COLORS.textLight,
+    margin: 0,
+  },
+  closeBtn: {
+    background: "none",
+    border: "none",
+    fontSize: "24px",
+    cursor: "pointer",
+    color: GAMYAM_COLORS.textDim,
+  },
+  modalContent: {
+    padding: "24px",
+    overflowY: "auto",
+    flex: 1,
+  },
+  modalFooter: {
+    padding: "16px 24px",
+    borderTop: `1px solid ${GAMYAM_COLORS.border}`,
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "12px",
+  },
+  detailSection: {
+    marginBottom: "20px",
+    paddingBottom: "16px",
+    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  sectionTitle: {
+    fontSize: "16px",
+    fontWeight: "700",
+    color: GAMYAM_COLORS.orange,
+    marginBottom: "12px",
+  },
+  detailItem: {
+    fontSize: "14px",
+    color: GAMYAM_COLORS.textMuted,
+    marginBottom: "8px",
+  },
+};
+
+export default ApplicationsTable;
