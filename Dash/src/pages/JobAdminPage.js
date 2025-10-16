@@ -118,9 +118,9 @@ function JobAdminPage() {
   };
 
   const handleBackFromRecruiter = () => {
-    setSelectedApplicant(null);
-    fetchApplications();
-  };
+  setSelectedApplicant(null);
+  fetchApplications(); // ✅ This should refresh the table
+};
 
   // If viewing recruiter actions page, show that instead
   if (selectedApplicant) {

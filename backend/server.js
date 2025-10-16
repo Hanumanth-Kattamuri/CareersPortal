@@ -91,24 +91,26 @@ async function initGoogleSheet() {
 
     let sheet = doc.sheetsByIndex[0];
 
-    const headers = [
-      'Application ID',
-      'Candidate Name',
-      'Email',
-      'Phone',
-      'Position',
-      'Resume Link',
-      'Status',
-      'Panel Number',
-      'Interviewer Name',
-      'Interviewer Email',
-      'Interviewer Phone',
-      'Round',
-      'Feedback',
-      'Recruiter Action',
-      'Notes',
-      'Date Applied'
-    ];
+    // Inside initGoogleSheet function
+// REPLACE the headers array with:
+const headers = [
+  'Application ID',
+  'Candidate Name',
+  'Email',
+  'Phone',
+  'Position',
+  'Resume Link',
+  'Status',
+  'Panel Number',
+  'Interviewer Name',
+  'Interviewer Email',
+  'Interviewer Phone',
+  'Round',
+  'Feedback',
+  'Scheduled By',      // Changed from 'Recruiter Action'
+  'Place',             // Changed from 'Notes'
+  'Interview Date Scheduled'  // Changed from 'Date Applied'
+];
 
     // If no sheet exists, create it
     if (!sheet) {
@@ -596,37 +598,32 @@ async function parseResume(buffer) {
 
 async function syncToGoogleSheets(applicationId, data) {
   if (!googleSheet) {
-    // Try to initialize if not already done
-    if (!googleSheet) {
-      return; // Skip if still not available
-    }
+    console.log('⚠️ Google Sheets not available');
+    return;
   }
 
   try {
-    // Reload headers to ensure they're fresh
     await googleSheet.loadHeaderRow();
-    
-    // Get all rows
     const rows = await googleSheet.getRows();
-    
-    // Find existing row
     let existingRow = rows.find(row => row.get('Application ID') === applicationId);
     
     if (existingRow) {
-      // Update existing row
-      if (data.name) existingRow.set('Candidate Name', data.name);
-      if (data.email) existingRow.set('Email', data.email);
-      if (data.phone) existingRow.set('Phone', data.phone);
-      if (data.position) existingRow.set('Position', data.position);
-      if (data.skills) existingRow.set('Resume Link', data.skills);
-      if (data.status) existingRow.set('Status', data.status);
-      if (data.round) existingRow.set('Round', data.round);
-      if (data.feedback) existingRow.set('Feedback', data.feedback);
-      if (data.scheduledDate) existingRow.set('Panel Number', data.scheduledDate);
-      if (data.scheduledTime) existingRow.set('Interviewer Name', data.scheduledTime);
-      if (data.interviewer) existingRow.set('Interviewer Email', data.interviewer);
-      if (data.scheduledBy) existingRow.set('Recruiter Action', data.scheduledBy);
-      if (data.place) existingRow.set('Notes', data.place);
+      // Update existing row - ONLY update fields that are provided
+      if (data.name !== undefined) existingRow.set('Candidate Name', data.name);
+      if (data.email !== undefined) existingRow.set('Email', data.email);
+      if (data.phone !== undefined) existingRow.set('Phone', data.phone);
+      if (data.position !== undefined) existingRow.set('Position', data.position);
+      if (data.resumeLink !== undefined) existingRow.set('Resume Link', data.resumeLink);
+      if (data.status !== undefined) existingRow.set('Status', data.status);
+      if (data.panelNumber !== undefined) existingRow.set('Panel Number', data.panelNumber);
+      if (data.interviewerName !== undefined) existingRow.set('Interviewer Name', data.interviewerName);
+      if (data.interviewerEmail !== undefined) existingRow.set('Interviewer Email', data.interviewerEmail);
+      if (data.interviewerPhone !== undefined) existingRow.set('Interviewer Phone', data.interviewerPhone);
+      if (data.round !== undefined) existingRow.set('Round', data.round);
+      if (data.allFeedback !== undefined) existingRow.set('Feedback', data.allFeedback);
+      if (data.scheduledBy !== undefined) existingRow.set('Scheduled By', data.scheduledBy);
+      if (data.place !== undefined) existingRow.set('Place', data.place);
+      if (data.interviewDate !== undefined) existingRow.set('Interview Date Scheduled', data.interviewDate);
       
       await existingRow.save();
       console.log('✅ Updated Google Sheets row for:', applicationId);
@@ -638,17 +635,17 @@ async function syncToGoogleSheets(applicationId, data) {
         'Email': data.email || '',
         'Phone': data.phone || '',
         'Position': data.position || '',
-        'Resume Link': data.skills || '',
+        'Resume Link': data.resumeLink || '',
         'Status': data.status || 'pending',
-        'Panel Number': data.scheduledDate || '',
-        'Interviewer Name': data.scheduledTime || '',
-        'Interviewer Email': data.interviewer || '',
-        'Interviewer Phone': '',
+        'Panel Number': data.panelNumber || '',
+        'Interviewer Name': data.interviewerName || '',
+        'Interviewer Email': data.interviewerEmail || '',
+        'Interviewer Phone': data.interviewerPhone || '',
         'Round': data.round || '',
-        'Feedback': data.feedback || '',
-        'Recruiter Action': data.scheduledBy || '',
-        'Notes': data.place || '',
-        'Date Applied': new Date().toLocaleDateString()
+        'Feedback': data.allFeedback || '',
+        'Scheduled By': data.scheduledBy || '',
+        'Place': data.place || '',
+        'Interview Date Scheduled': data.interviewDate || new Date().toLocaleDateString()
       });
       console.log('✅ Added new row to Google Sheets for:', applicationId);
     }
@@ -768,14 +765,16 @@ app.post('/api/applications', async (req, res) => {
     console.log('✅ Application saved to database');
 
     // Sync to Google Sheets
-    await syncToGoogleSheets(application._id.toString(), {
-      name: application.name,
-      email: application.email,
-      phone: application.phone,
-      position: application.jobTitle,
-      skills: application.skillset,
-      status: application.status
-    });
+    // Inside app.post('/api/applications', ...)
+// REPLACE the syncToGoogleSheets call with:
+await syncToGoogleSheets(application._id.toString(), {
+  name: application.name,
+  email: application.email,
+  phone: application.phone,
+  position: application.jobTitle,
+  resumeLink: `Resume uploaded`, // Fixed: was sending skillset
+  status: application.status
+});
 
     // Send confirmation email
     const mailOptions = {
@@ -919,6 +918,7 @@ app.post('/api/applications/:id/accept', async (req, res) => {
 });
 
 // Save recruiter actions (NEW ENDPOINT)
+// REPLACE the existing app.post('/api/recruiter-actions/:applicationId') endpoint with:
 app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
   try {
     const { applicationId } = req.params;
@@ -942,20 +942,34 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
     let recruiterAction = await RecruiterAction.findOne({ applicationId });
     
     if (recruiterAction) {
-      // Handle feedback appending based on round
+      // Handle feedback appending based on round - IMPROVED LOGIC
       let updatedFeedback = recruiterAction.feedback || '';
       
       if (feedback && feedback.trim()) {
-        // Check if this round's feedback already exists
         const roundPrefix = `${roundStatus}:`;
+        const newFeedbackText = feedback.trim();
+        
+        // Split existing feedback into lines
         const feedbackLines = updatedFeedback.split('\n').filter(line => line.trim());
         
-        // Remove existing feedback for this round if present
-        const filteredFeedback = feedbackLines.filter(line => !line.startsWith(roundPrefix));
+        // Remove ALL existing entries for this round
+        const filteredFeedback = feedbackLines.filter(line => {
+          const lineRound = line.split(':')[0];
+          return lineRound !== roundStatus;
+        });
         
-        // Add new feedback for this round
-        filteredFeedback.push(`${roundPrefix} ${feedback.trim()}`);
-        updatedFeedback = filteredFeedback.join('\n');
+        // Add the new feedback for this round ONLY ONCE
+        filteredFeedback.push(`${roundPrefix} ${newFeedbackText}`);
+        
+        // Sort feedback by round order
+        const roundOrder = ["Round 1", "Round 2", "Round 3", "Final Round"];
+        const sortedFeedback = filteredFeedback.sort((a, b) => {
+          const roundA = a.split(':')[0];
+          const roundB = b.split(':')[0];
+          return roundOrder.indexOf(roundA) - roundOrder.indexOf(roundB);
+        });
+        
+        updatedFeedback = sortedFeedback.join('\n');
       }
       
       recruiterAction.roundStatus = roundStatus;
@@ -998,20 +1012,26 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
     const application = await Application.findById(applicationId);
     
     if (application) {
+      const interviewDate = scheduledDate ? 
+        `${new Date(scheduledDate).toLocaleDateString()} ${scheduledTime}` : 
+        '';
+        
       await syncToGoogleSheets(applicationId, {
         name: application.name,
         email: application.email,
         phone: application.phone,
         position: application.jobTitle,
-        skills: application.skillset,
+        resumeLink: 'Resume uploaded',
         status: application.status,
         round: roundStatus,
-        feedback: recruiterAction.feedback,
-        scheduledDate: scheduledDate,
-        scheduledTime: scheduledTime,
-        interviewer: interviewerName,
+        allFeedback: recruiterAction.feedback,
+        panelNumber: panelNumber,
+        interviewerName: interviewerName,
+        interviewerEmail: interviewerEmail,
+        interviewerPhone: interviewerPhone,
         scheduledBy: scheduledBy,
-        place: interviewPlace
+        place: interviewPlace,
+        interviewDate: interviewDate
       });
     }
 
@@ -1025,17 +1045,54 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
   }
 });
 
-
-// Get recruiter actions for an application (NEW ENDPOINT)
-app.get('/api/recruiter-actions/:applicationId', async (req, res) => {
+// Get all rounds data for an application
+app.get('/api/recruiter-actions/:applicationId/all-rounds', async (req, res) => {
   try {
-    const recruiterAction = await RecruiterAction.findOne({ 
-      applicationId: req.params.applicationId 
+    const applicationId = req.params.applicationId;
+    const recruiterAction = await RecruiterAction.findOne({ applicationId });
+    
+    if (!recruiterAction) {
+      return res.json([]);
+    }
+
+    // Parse feedback by rounds
+    const feedbackLines = recruiterAction.feedback.split('\n').filter(line => line.trim());
+    const roundsData = [];
+
+    ['Round 1', 'Round 2', 'Round 3', 'Final Round'].forEach(round => {
+      const roundFeedback = feedbackLines.find(line => line.startsWith(`${round}:`));
+      if (roundFeedback || recruiterAction.roundStatus === round) {
+        roundsData.push({
+          round: round,
+          feedback: roundFeedback ? roundFeedback.replace(`${round}:`, '').trim() : '',
+          scheduledDate: recruiterAction.roundStatus === round ? recruiterAction.scheduledDate : '',
+          scheduledTime: recruiterAction.roundStatus === round ? recruiterAction.scheduledTime : '',
+          interviewerName: recruiterAction.roundStatus === round ? recruiterAction.interviewerName : '',
+          interviewerEmail: recruiterAction.roundStatus === round ? recruiterAction.interviewerEmail : '',
+          interviewerPhone: recruiterAction.roundStatus === round ? recruiterAction.interviewerPhone : '',
+          panelNumber: recruiterAction.roundStatus === round ? recruiterAction.panelNumber : '',
+          scheduledBy: recruiterAction.roundStatus === round ? recruiterAction.scheduledBy : '',
+          place: recruiterAction.roundStatus === round ? recruiterAction.interviewPlace : ''
+        });
+      }
     });
+
+    res.json(roundsData);
+  } catch (err) {
+    console.error('Error fetching all rounds:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add this NEW endpoint after the existing /api/recruiter-actions/:applicationId/all-rounds
+app.get('/api/recruiter-actions/:applicationId/round/:roundName', async (req, res) => {
+  try {
+    const { applicationId, roundName } = req.params;
+    const recruiterAction = await RecruiterAction.findOne({ applicationId });
     
     if (!recruiterAction) {
       return res.json({
-        roundStatus: 'Round 1',
+        round: roundName,
         feedback: '',
         scheduledDate: '',
         scheduledTime: '',
@@ -1044,19 +1101,48 @@ app.get('/api/recruiter-actions/:applicationId', async (req, res) => {
         interviewerPhone: '',
         panelNumber: '',
         scheduledBy: '',
-        interviewPlace: '',
-        isRejected: false,
-        rejectionRound: ''
+        place: ''
+      });
+    }
+
+    // Parse feedback for specific round
+    const feedbackLines = recruiterAction.feedback.split('\n').filter(line => line.trim());
+    const roundFeedback = feedbackLines.find(line => line.startsWith(`${roundName}:`));
+    
+    // If this is the current round, return current details
+    if (recruiterAction.roundStatus === roundName) {
+      return res.json({
+        round: roundName,
+        feedback: roundFeedback ? roundFeedback.replace(`${roundName}:`, '').trim() : '',
+        scheduledDate: recruiterAction.scheduledDate,
+        scheduledTime: recruiterAction.scheduledTime,
+        interviewerName: recruiterAction.interviewerName,
+        interviewerEmail: recruiterAction.interviewerEmail,
+        interviewerPhone: recruiterAction.interviewerPhone,
+        panelNumber: recruiterAction.panelNumber,
+        scheduledBy: recruiterAction.scheduledBy,
+        place: recruiterAction.interviewPlace
       });
     }
     
-    res.json(recruiterAction);
+    // For past rounds, return only feedback
+    return res.json({
+      round: roundName,
+      feedback: roundFeedback ? roundFeedback.replace(`${roundName}:`, '').trim() : '',
+      scheduledDate: '',
+      scheduledTime: '',
+      interviewerName: '',
+      interviewerEmail: '',
+      interviewerPhone: '',
+      panelNumber: '',
+      scheduledBy: '',
+      place: ''
+    });
   } catch (err) {
-    console.error('Error fetching recruiter actions:', err);
+    console.error('Error fetching round data:', err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // Send custom email (NEW ENDPOINT)
 // Send custom email (NEW ENDPOINT)
@@ -1370,6 +1456,104 @@ Gamyam Recruitment Team`;
     res.json({ message: 'Candidate promoted to next round successfully' });
   } catch (err) {
     console.error('Error promoting candidate:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Send selection email to final round candidates
+// REPLACE the existing /api/send-selection-email endpoint with this:
+app.post('/api/send-selection-email', async (req, res) => {
+  try {
+    const { to, applicantName, jobTitle, applicationId } = req.body;
+
+    console.log('📧 Sending selection email to:', to);
+
+    const mailOptions = {
+      from: 'naghanu07@gmail.com',
+      to: to,
+      subject: `🎉 Congratulations! You've been selected for ${jobTitle}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; margin: 0; padding: 0; background: #0a0a0a; }
+            .container { max-width: 600px; margin: 0 auto; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%); padding: 40px 30px; text-align: center; }
+            .header h1 { margin: 0; color: white; font-size: 32px; }
+            .content { padding: 40px 30px; background: #1a1a1a; color: #e0e0e0; line-height: 1.8; }
+            .highlight-box { background: rgba(76, 175, 80, 0.2); padding: 25px; border-left: 4px solid #4CAF50; margin: 25px 0; border-radius: 8px; }
+            .footer { background: #0a0a0a; padding: 20px 30px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #333; }
+            .cta-button { display: inline-block; background: #4CAF50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 8px; font-weight: 600; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎉 Congratulations!</h1>
+            </div>
+            
+            <div class="content">
+              <p>Dear <strong>${applicantName}</strong>,</p>
+              
+              <div class="highlight-box">
+                <h2 style="margin-top: 0; color: #4CAF50; font-size: 24px;">You've Been Selected!</h2>
+                <p style="font-size: 18px; margin: 15px 0 0 0;">
+                  We are thrilled to offer you the position of <strong>${jobTitle}</strong> at Gamyam!
+                </p>
+              </div>
+              
+              <p>After careful consideration of all candidates, we are delighted to inform you that you have successfully completed all interview rounds and have been selected to join our team.</p>
+              
+              <p><strong>What's Next?</strong></p>
+              <ul style="line-height: 2;">
+                <li>Our HR team will contact you within 24-48 hours with the official offer letter</li>
+                <li>We will discuss compensation, joining date, and other formalities</li>
+                <li>Please keep your documents ready for verification</li>
+              </ul>
+              
+              <p style="margin-top: 30px;">We are excited to have you on board and look forward to working with you!</p>
+              
+              <p style="margin-top: 40px;">
+                Warm regards,<br>
+                <strong style="color: #4CAF50; font-size: 16px;">Gamyam Recruitment Team</strong>
+              </p>
+            </div>
+            
+            <div class="footer">
+              <p>For any questions, please contact us at hr@gamyam.com</p>
+              <p>© 2025 Gamyam. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    
+    // UPDATE APPLICATION STATUS TO 'selected'
+    if (applicationId) {
+      await Application.findByIdAndUpdate(applicationId, { status: 'selected' });
+      
+      // Sync to Google Sheets
+      const application = await Application.findById(applicationId);
+      if (application) {
+        await syncToGoogleSheets(applicationId, {
+          name: application.name,
+          email: application.email,
+          phone: application.phone,
+          position: application.jobTitle,
+          resumeLink: 'Resume uploaded',
+          status: 'selected'
+        });
+      }
+    }
+    
+    console.log('✅ Selection email sent successfully and status updated to selected');
+    res.json({ message: 'Selection email sent successfully' });
+  } catch (err) {
+    console.error('❌ Error sending selection email:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -46,45 +46,48 @@ function RecruiterActionsPage({ applicant, onBack }) {
   }, [applicant._id]);
 
   const loadRecruiterActions = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
-      const data = response.data;
-      
-      setRoundStatus(data.roundStatus || "Round 1");
-      setAllFeedback(data.feedback || "");
-      setScheduledDate(data.scheduledDate || "");
-      setScheduledTime(data.scheduledTime || "");
-      setInterviewerName(data.interviewerName || "");
-      setInterviewerEmail(data.interviewerEmail || "");
-      setInterviewerPhone(data.interviewerPhone || "");
-      setPanelNumber(data.panelNumber || "");
-      setScheduledBy(data.scheduledBy || "");
-      setInterviewPlace(data.interviewPlace || "");
-      setIsRejected(data.isRejected || false);
-      
-      // Extract current round feedback
-      const feedbackLines = (data.feedback || "").split('\n');
-      const currentRoundFeedback = feedbackLines.find(line => line.startsWith(`${data.roundStatus}:`));
-      if (currentRoundFeedback) {
-        setFeedback(currentRoundFeedback.replace(`${data.roundStatus}:`, '').trim());
-      } else {
-        setFeedback("");
-      }
-      
-      if (data.scheduledDate || data.interviewerName) {
-        setIsEditing(false);
-      } else {
-        setIsEditing(true);
-      }
-      
-      console.log('✅ Loaded existing recruiter actions');
-    } catch (err) {
-      console.error('Error loading recruiter actions:', err);
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const response = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
+    const data = response.data;
+    
+    setRoundStatus(data.roundStatus || "Round 1");
+    setAllFeedback(data.feedback || "");
+    setScheduledDate(data.scheduledDate || "");
+    setScheduledTime(data.scheduledTime || "");
+    setInterviewerName(data.interviewerName || "");
+    setInterviewerEmail(data.interviewerEmail || "");
+    setInterviewerPhone(data.interviewerPhone || "");
+    setPanelNumber(data.panelNumber || "");
+    setScheduledBy(data.scheduledBy || "");
+    setInterviewPlace(data.interviewPlace || "");
+    setIsRejected(data.isRejected || false);
+    
+    // Extract ONLY the current round's feedback for editing
+    const feedbackLines = (data.feedback || "").split('\n').filter(line => line.trim());
+    const currentRoundFeedback = feedbackLines.find(line => line.startsWith(`${data.roundStatus}:`));
+    
+    if (currentRoundFeedback) {
+      // Remove the "Round X: " prefix to show only the feedback text
+      const feedbackText = currentRoundFeedback.substring(currentRoundFeedback.indexOf(':') + 1).trim();
+      setFeedback(feedbackText);
+    } else {
+      setFeedback("");
     }
-  };
+    
+    if (data.scheduledDate || data.interviewerName) {
+      setIsEditing(false);
+    } else {
+      setIsEditing(true);
+    }
+    
+    console.log('✅ Loaded existing recruiter actions');
+  } catch (err) {
+    console.error('Error loading recruiter actions:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSendEmail = async () => {
     if (!emailData.subject || !emailData.body) {
@@ -142,67 +145,73 @@ function RecruiterActionsPage({ applicant, onBack }) {
   };
 
   const handleSaveScheduleDetails = async () => {
-    if (!scheduledDate || !scheduledTime || !interviewerName || !interviewerEmail || !scheduledBy || !interviewPlace || !panelNumber) {
-      alert("Please fill in all schedule details");
-      return;
-    }
+  if (!scheduledDate || !scheduledTime || !interviewerName || !interviewerEmail || !scheduledBy || !interviewPlace || !panelNumber) {
+    alert("Please fill in all schedule details");
+    return;
+  }
 
-    setSaving(true);
-    try {
-      await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
-        roundStatus,
-        feedback: allFeedback,
-        scheduledDate,
-        scheduledTime,
-        interviewerName,
-        interviewerEmail,
-        interviewerPhone,
-        panelNumber,
-        scheduledBy,
-        interviewPlace,
-        isRejected,
-        rejectionRound: isRejected ? roundStatus : ''
-      });
-      alert("Schedule details saved successfully!");
-      setIsEditing(false);
-      loadRecruiterActions();
-    } catch (err) {
-      console.error("Error saving schedule details:", err);
-      alert("Failed to save schedule details");
-    }
-    setSaving(false);
-  };
+  setSaving(true);
+  try {
+    // Get existing recruiter action first
+    const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
+    
+    await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
+      roundStatus,
+      feedback: existingAction.data.feedback || '', // Keep existing feedback, don't touch it
+      scheduledDate,
+      scheduledTime,
+      interviewerName,
+      interviewerEmail,
+      interviewerPhone,
+      panelNumber,
+      scheduledBy,
+      interviewPlace,
+      isRejected,
+      rejectionRound: isRejected ? roundStatus : ''
+    });
+    alert("Schedule details saved successfully!");
+    setIsEditing(false);
+    loadRecruiterActions();
+  } catch (err) {
+    console.error("Error saving schedule details:", err);
+    alert("Failed to save schedule details");
+  }
+  setSaving(false);
+};
 
   const handleSaveFeedback = async () => {
-    if (!feedback.trim()) {
-      alert("Please enter feedback before saving");
-      return;
-    }
+  if (!feedback.trim()) {
+    alert("Please enter feedback before saving");
+    return;
+  }
 
-    setSaving(true);
-    try {
-      await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
-        roundStatus,
-        feedback: feedback.trim(),
-        scheduledDate,
-        scheduledTime,
-        interviewerName,
-        interviewerEmail,
-        interviewerPhone,
-        panelNumber,
-        scheduledBy,
-        interviewPlace,
-        isRejected,
-        rejectionRound: isRejected ? roundStatus : ''
-      });
-      alert("Feedback saved successfully!");
-      loadRecruiterActions();
-    } catch (err) {
-      console.error("Error saving feedback:", err);
-      alert("Failed to save feedback");
-    }
-    setSaving(false);
-  };
+  setSaving(true);
+  try {
+    // Get existing recruiter action to preserve schedule details
+    const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
+    
+    await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
+      roundStatus,
+      feedback: feedback.trim(), // Only send the current feedback text
+      scheduledDate: existingAction.data.scheduledDate || scheduledDate,
+      scheduledTime: existingAction.data.scheduledTime || scheduledTime,
+      interviewerName: existingAction.data.interviewerName || interviewerName,
+      interviewerEmail: existingAction.data.interviewerEmail || interviewerEmail,
+      interviewerPhone: existingAction.data.interviewerPhone || interviewerPhone,
+      panelNumber: existingAction.data.panelNumber || panelNumber,
+      scheduledBy: existingAction.data.scheduledBy || scheduledBy,
+      interviewPlace: existingAction.data.interviewPlace || interviewPlace,
+      isRejected,
+      rejectionRound: isRejected ? roundStatus : ''
+    });
+    alert("Feedback saved successfully!");
+    await loadRecruiterActions(); // Reload to show updated feedback
+  } catch (err) {
+    console.error("Error saving feedback:", err);
+    alert("Failed to save feedback");
+  }
+  setSaving(false);
+};
 
   const handleRejectCandidate = async () => {
     if (!window.confirm(`Are you sure you want to reject ${applicant.name} in ${roundStatus}?`)) {
@@ -272,6 +281,33 @@ function RecruiterActionsPage({ applicant, onBack }) {
     }
     setSending(false);
   };
+  // REPLACE the existing handleSendSelectionEmail function with:
+const handleSendSelectionEmail = async () => {
+  if (!window.confirm(`Send selection email to ${applicant.name}?`)) {
+    return;
+  }
+
+  setSending(true);
+  try {
+    await axios.post('http://localhost:5000/api/send-selection-email', {
+      to: applicant.email,
+      applicantName: applicant.name,
+      jobTitle: applicant.jobTitle,
+      applicationId: applicant._id
+    });
+
+    alert('Selection email sent successfully! Status updated to Selected.');
+    
+    // Navigate back and refresh
+    if (onBack) {
+      onBack(); // This will trigger refresh in parent component
+    }
+  } catch (err) {
+    console.error('Error sending selection email:', err);
+    alert('Failed to send selection email');
+  }
+  setSending(false);
+};
 
   const handleViewResume = async () => {
     try {
@@ -588,24 +624,37 @@ function RecruiterActionsPage({ applicant, onBack }) {
             </div>
 
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Round Actions</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button 
-                  style={styles.promoteBtn}
-                  onClick={handlePromoteToNextRound}
-                  disabled={saving || roundStatus === "Final Round"}
-                >
-                  <CheckCircle size={18} /> Promote to Next Round
-                </button>
-                <button 
-                  style={styles.rejectBtn}
-                  onClick={handleRejectCandidate}
-                  disabled={saving}
-                >
-                  <XCircle size={18} /> Reject Candidate
-                </button>
-              </div>
-            </div>
+  <h2 style={styles.cardTitle}>Round Actions</h2>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    {roundStatus !== "Final Round" && (
+      <button 
+        style={styles.promoteBtn}
+        onClick={handlePromoteToNextRound}
+        disabled={saving}
+      >
+        <CheckCircle size={18} /> Promote to Next Round
+      </button>
+    )}
+    
+    {roundStatus === "Final Round" && (
+      <button 
+        style={{...styles.promoteBtn, background: '#2196F3'}}
+        onClick={handleSendSelectionEmail}
+        disabled={saving}
+      >
+        <Mail size={18} /> Send Selection Email
+      </button>
+    )}
+    
+    <button 
+      style={styles.rejectBtn}
+      onClick={handleRejectCandidate}
+      disabled={saving}
+    >
+      <XCircle size={18} /> Reject Candidate
+    </button>
+  </div>
+</div>
           </div>
         </div>
 

@@ -103,27 +103,31 @@ function ApplicationsTable({ applications, onRefresh, onNavigateToRecruiter }) {
     return statusMatch && roleMatch;
   });
 
-  const getStatusStyle = (status) => {
-    const styles = {
-      rejected: { background: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
-      accepted: { background: "rgba(76, 175, 80, 0.2)", color: "#51cf66" },
-      pending: { background: "rgba(255, 107, 53, 0.2)", color: GAMYAM_COLORS.orange },
-      'on-hold': { background: "rgba(255, 193, 7, 0.2)", color: "#ffc107" },
-      reconsidered: { background: "rgba(33, 150, 243, 0.2)", color: "#2196F3" }
-    };
-    return styles[status] || styles.pending;
+  // REPLACE the getStatusStyle function with:
+const getStatusStyle = (status) => {
+  const styles = {
+    rejected: { background: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
+    accepted: { background: "rgba(76, 175, 80, 0.2)", color: "#51cf66" },
+    selected: { background: "rgba(33, 150, 243, 0.2)", color: "#2196F3" },  // NEW
+    pending: { background: "rgba(255, 107, 53, 0.2)", color: GAMYAM_COLORS.orange },
+    'on-hold': { background: "rgba(255, 193, 7, 0.2)", color: "#ffc107" },
+    reconsidered: { background: "rgba(33, 150, 243, 0.2)", color: "#2196F3" }
   };
+  return styles[status] || styles.pending;
+};
 
-  const getStatusLabel = (status) => {
-    const labels = {
-      rejected: "Rejected",
-      accepted: "Accepted",
-      pending: "Pending",
-      'on-hold': "On Hold",
-      reconsidered: "Reconsidered"
-    };
-    return labels[status] || status;
+// REPLACE the getStatusLabel function with:
+const getStatusLabel = (status) => {
+  const labels = {
+    rejected: "Rejected",
+    accepted: "Accepted",
+    selected: "Selected",  // NEW
+    pending: "Pending",
+    'on-hold': "On Hold",
+    reconsidered: "Reconsidered"
   };
+  return labels[status] || status;
+};
 
   return (
     <div style={styles.container}>
@@ -131,18 +135,20 @@ function ApplicationsTable({ applications, onRefresh, onNavigateToRecruiter }) {
       <div style={styles.filterContainer}>
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Filter by Status:</label>
-          <select 
-            value={filterStatus} 
-            onChange={(e) => setFilterStatus(e.target.value)}
-            style={styles.selectStyle}
-          >
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="accepted">Accepted</option>
-            <option value="rejected">Rejected</option>
-            <option value="on-hold">On Hold</option>
-            <option value="reconsidered">Reconsidered</option>
-          </select>
+          
+<select 
+  value={filterStatus} 
+  onChange={(e) => setFilterStatus(e.target.value)}
+  style={styles.selectStyle}
+>
+  <option value="all">All Statuses</option>
+  <option value="pending">Pending</option>
+  <option value="accepted">Accepted</option>
+  <option value="selected">Selected</option>  {/* ADD THIS LINE */}
+  <option value="rejected">Rejected</option>
+  <option value="on-hold">On Hold</option>
+  <option value="reconsidered">Reconsidered</option>
+</select>
         </div>
 
         <div style={styles.filterGroup}>
@@ -181,98 +187,111 @@ function ApplicationsTable({ applications, onRefresh, onNavigateToRecruiter }) {
             </tr>
           </thead>
           <tbody>
-            {filteredApplications.map((app) => (
-              <tr key={app._id} style={styles.tr}>
-                <td style={styles.td}>{app.name || "NA"}</td>
-                <td style={styles.td}>{app.email || "NA"}</td>
-                <td style={styles.td}>{app.phone || "NA"}</td>
-                <td style={styles.td}>
-                  <span style={styles.roleTag}>{app.jobTitle || "NA"}</span>
-                </td>
-                <td style={styles.td}>
-                  {app.resumePDF && app.resumePDF.data ? (
-                    <button 
-                      onClick={() => handleViewResume(app._id, app.name)}
-                      style={styles.resumeBtn}
-                    >
-                      📄 View PDF
-                    </button>
-                  ) : (
-                    <span style={{ color: GAMYAM_COLORS.textDim, fontSize: "13px" }}>No Resume</span>
-                  )}
-                </td>
-                <td style={styles.td}>{app.skillset || "NA"}</td>
-                <td style={styles.td}>
-                  <div style={{ position: 'relative' }}>
-                    <span style={{ ...styles.statusBadge, ...getStatusStyle(app.status) }}>
-                      {getStatusLabel(app.status)}
-                    </span>
-                    {app.status === "rejected" && (
-                      <button
-                        style={styles.statusMenuBtn}
-                        onClick={() => setShowStatusMenu(showStatusMenu === app._id ? null : app._id)}
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                    )}
-                    {showStatusMenu === app._id && (
-                      <div style={styles.statusMenu}>
-                        <button
-                          style={styles.statusMenuItem}
-                          onClick={() => handleStatusChange(app._id, 'on-hold')}
-                        >
-                          Mark as On Hold
-                        </button>
-                        <button
-                          style={styles.statusMenuItem}
-                          onClick={() => handleStatusChange(app._id, 'reconsidered')}
-                        >
-                          Reconsider Application
-                        </button>
-                        <button
-                          style={styles.statusMenuItem}
-                          onClick={() => handleStatusChange(app._id, 'pending')}
-                        >
-                          Move to Pending
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td style={styles.td}>
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                    <button style={styles.btn} onClick={() => setSelectedApp(app)}>View</button>
-                    {app.status !== "rejected" && (
-                      <button 
-                        style={{...styles.btn, ...styles.rejectBtn}} 
-                        onClick={() => handleReject(app)}
-                        disabled={rejecting === app._id}
-                      >
-                        {rejecting === app._id ? "..." : "Reject"}
-                      </button>
-                    )}
-                    {app.status === "pending" && (
-                      <button 
-                        style={{...styles.btn, background: GAMYAM_COLORS.orange}} 
-                        onClick={() => handleAccept(app)}
-                        disabled={accepting === app._id}
-                      >
-                        {accepting === app._id ? "..." : "Accept"}
-                      </button>
-                    )}
-                    {(app.status === "accepted" || app.status === "reconsidered") && (
-                      <button 
-                        style={{...styles.btn, ...styles.nextStepBtn}} 
-                        onClick={() => onNavigateToRecruiter(app)}
-                      >
-                        Next Step <ArrowRight size={16} style={{ marginLeft: "4px" }} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+  {filteredApplications.map((app) => (
+    <tr key={app._id} style={styles.tr}>
+      <td style={styles.td}>{app.name || "NA"}</td>
+      <td style={styles.td}>{app.email || "NA"}</td>
+      <td style={styles.td}>{app.phone || "NA"}</td>
+      <td style={styles.td}>
+        <span style={styles.roleTag}>{app.jobTitle || "NA"}</span>
+      </td>
+      <td style={styles.td}>
+        {app.resumePDF && app.resumePDF.data ? (
+          <button 
+            onClick={() => handleViewResume(app._id, app.name)}
+            style={styles.resumeBtn}
+          >
+            📄 View PDF
+          </button>
+        ) : (
+          <span style={{ color: GAMYAM_COLORS.textDim, fontSize: "13px" }}>No Resume</span>
+        )}
+      </td>
+      <td style={styles.td}>{app.skillset || "NA"}</td>
+      <td style={styles.td}>
+        <div style={{ position: 'relative' }}>
+          <span style={{ ...styles.statusBadge, ...getStatusStyle(app.status) }}>
+            {getStatusLabel(app.status)}
+          </span>
+          {app.status === "rejected" && (
+            <button
+              style={styles.statusMenuBtn}
+              onClick={() => setShowStatusMenu(showStatusMenu === app._id ? null : app._id)}
+            >
+              <MoreVertical size={16} />
+            </button>
+          )}
+          {showStatusMenu === app._id && (
+            <div style={styles.statusMenu}>
+              <button
+                style={styles.statusMenuItem}
+                onClick={() => handleStatusChange(app._id, 'on-hold')}
+              >
+                Mark as On Hold
+              </button>
+              <button
+                style={styles.statusMenuItem}
+                onClick={() => handleStatusChange(app._id, 'reconsidered')}
+              >
+                Reconsider Application
+              </button>
+              <button
+                style={styles.statusMenuItem}
+                onClick={() => handleStatusChange(app._id, 'pending')}
+              >
+                Move to Pending
+              </button>
+            </div>
+          )}
+        </div>
+      </td>
+      <td style={styles.td}>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button style={styles.btn} onClick={() => setSelectedApp(app)}>View</button>
+          
+          {/* Reject button - shown for all statuses except rejected and selected */}
+          {app.status !== "rejected" && app.status !== "selected" && (
+            <button 
+              style={{...styles.btn, ...styles.rejectBtn}} 
+              onClick={() => handleReject(app)}
+              disabled={rejecting === app._id}
+            >
+              {rejecting === app._id ? "..." : "Reject"}
+            </button>
+          )}
+          
+          {/* Accept button - only for pending status */}
+          {app.status === "pending" && (
+            <button 
+              style={{...styles.btn, background: GAMYAM_COLORS.orange}} 
+              onClick={() => handleAccept(app)}
+              disabled={accepting === app._id}
+            >
+              {accepting === app._id ? "..." : "Accept"}
+            </button>
+          )}
+          
+          {/* Next Step button - for accepted, reconsidered, and on-hold */}
+          {(app.status === "accepted" || app.status === "reconsidered" || app.status === "on-hold") && (
+            <button 
+              style={{...styles.btn, ...styles.nextStepBtn}} 
+              onClick={() => onNavigateToRecruiter(app)}
+            >
+              Next Step <ArrowRight size={16} style={{ marginLeft: "4px" }} />
+            </button>
+          )}
+          
+          {/* Hired badge - only for selected status */}
+          {app.status === "selected" && (
+            <span style={{ ...styles.statusBadge, ...getStatusStyle('selected'), padding: '6px 12px' }}>
+              ✓ Hired
+            </span>
+          )}
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
         </table>
       )}
 
