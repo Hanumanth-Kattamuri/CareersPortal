@@ -6,6 +6,7 @@ import JobStats from "../components/JobStats";
 import JobTable from "../components/JobTable";
 import JobForm from "../components/JobForm";
 import ApplicationsTable from "../components/ApplicationsTable";
+import RecruiterActionsPage from "../components/RecruiterActionsPage";
 
 const GAMYAM_COLORS = {
   darkBg: '#0f0f10',
@@ -25,6 +26,7 @@ function JobAdminPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [activeTab, setActiveTab] = useState("jobs");
+  const [selectedApplicant, setSelectedApplicant] = useState(null);
 
   const fetchJobs = async () => {
     try {
@@ -37,15 +39,22 @@ function JobAdminPage() {
   };
 
   const fetchApplications = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/applications");
-      setApplications(res.data);
-    } catch (err) {
-      console.error("Failed to fetch applications:", err);
-      alert("Failed to fetch applications");
-    }
-  };
-
+  try {
+    console.log('🔄 Fetching applications from API...');
+    const res = await axios.get("http://localhost:5000/api/applications");
+    console.log('✅ Applications fetched:', res.data.length);
+    setApplications(res.data);
+  } catch (err) {
+    console.error("❌ Failed to fetch applications:", err);
+    console.error("Error details:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status
+    });
+    alert(`Failed to fetch applications: ${err.message}\n\nPlease check:\n1. Backend server is running on port 5000\n2. MongoDB is connected\n3. Check browser console for details`);
+    setApplications([]); // Set empty array to prevent undefined errors
+  }
+};
   useEffect(() => {
     fetchJobs();
     fetchApplications();
@@ -104,6 +113,25 @@ function JobAdminPage() {
     }
   };
 
+  const handleNavigateToRecruiter = (applicant) => {
+    setSelectedApplicant(applicant);
+  };
+
+  const handleBackFromRecruiter = () => {
+    setSelectedApplicant(null);
+    fetchApplications();
+  };
+
+  // If viewing recruiter actions page, show that instead
+  if (selectedApplicant) {
+    return (
+      <RecruiterActionsPage 
+        applicant={selectedApplicant} 
+        onBack={handleBackFromRecruiter} 
+      />
+    );
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -148,7 +176,11 @@ function JobAdminPage() {
             <JobTable jobs={jobs} onEdit={handleEdit} onDelete={handleDelete} />
           </>
         ) : (
-          <ApplicationsTable applications={applications} onRefresh={fetchApplications} />
+          <ApplicationsTable 
+            applications={applications} 
+            onRefresh={fetchApplications} 
+            onNavigateToRecruiter={handleNavigateToRecruiter}
+          />
         )}
 
         {/* Job Form Modal */}
@@ -186,18 +218,18 @@ const styles = {
     border: `1px solid ${GAMYAM_COLORS.border}`,
   },
   addButton: {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  backgroundColor: GAMYAM_COLORS.orange,
-  color: '#ffffff',
-  border: "none",
-  borderRadius: "8px",
-  padding: "10px 18px",
-  fontSize: "15px",
-  cursor: "pointer",
-  fontWeight: "600",
-},
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    backgroundColor: GAMYAM_COLORS.orange,
+    color: '#ffffff',
+    border: "none",
+    borderRadius: "8px",
+    padding: "10px 18px",
+    fontSize: "15px",
+    cursor: "pointer",
+    fontWeight: "600",
+  },
   tabs: { 
     display: "flex", 
     gap: "20px", 
@@ -205,16 +237,16 @@ const styles = {
     cursor: "pointer" 
   },
   tab: (active) => ({
-  padding: "10px 20px",
-  borderRadius: "8px",
-  backgroundColor: active ? GAMYAM_COLORS.orange : GAMYAM_COLORS.darkCard,
-  color: active ? '#ffffff' : GAMYAM_COLORS.textMuted,
-  fontWeight: active ? "600" : "500",
-  boxShadow: active ? "0 2px 8px rgba(255,124,38,0.3)" : "none",
-  cursor: "pointer",
-  border: `1px solid ${GAMYAM_COLORS.border}`,
-  transition: "all 0.3s",
-}),
+    padding: "10px 20px",
+    borderRadius: "8px",
+    backgroundColor: active ? GAMYAM_COLORS.orange : GAMYAM_COLORS.darkCard,
+    color: active ? '#ffffff' : GAMYAM_COLORS.textMuted,
+    fontWeight: active ? "600" : "500",
+    boxShadow: active ? "0 2px 8px rgba(255,124,38,0.3)" : "none",
+    cursor: "pointer",
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+    transition: "all 0.3s",
+  }),
 };
 
 export default JobAdminPage;

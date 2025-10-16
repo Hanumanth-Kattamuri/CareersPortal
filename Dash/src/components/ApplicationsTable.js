@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import axios from "axios";
+import { ArrowRight, MoreVertical } from "lucide-react";
 
 const GAMYAM_COLORS = {
   darkBg: '#0f0f10',
@@ -13,12 +14,21 @@ const GAMYAM_COLORS = {
   border: '#4a4a4b',
 };
 
-function ApplicationsTable({ applications, onRefresh }) {
+function ApplicationsTable({ applications, onRefresh, onNavigateToRecruiter }) {
   const [selectedApp, setSelectedApp] = useState(null);
   const [rejecting, setRejecting] = useState(null);
   const [accepting, setAccepting] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRole, setFilterRole] = useState("all");
+  const [showStatusMenu, setShowStatusMenu] = useState(null);
+
+  // useEffect(() => {
+  //   console.log('📊 ApplicationsTable received:', {
+  //     applicationsCount: applications?.length || 0,
+  //     hasApplications: !!applications,
+  //     isArray: Array.isArray(applications)
+  //   });
+  // }, [applications]);
 
   const handleViewResume = async (appId, appName) => {
     try {
@@ -68,6 +78,20 @@ function ApplicationsTable({ applications, onRefresh }) {
     setAccepting(null);
   };
 
+  const handleStatusChange = async (appId, newStatus) => {
+    try {
+      await axios.post(`http://localhost:5000/api/applications/${appId}/update-status`, {
+        status: newStatus
+      });
+      alert(`Status updated to ${newStatus}`);
+      setShowStatusMenu(null);
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error("Error updating status:", err);
+      alert("Failed to update status");
+    }
+  };
+
   const uniqueRoles = useMemo(() => {
     const roles = applications.map(app => app.jobTitle).filter(role => role && role !== "NA");
     return [...new Set(roles)].sort();
@@ -83,9 +107,22 @@ function ApplicationsTable({ applications, onRefresh }) {
     const styles = {
       rejected: { background: "rgba(255, 107, 107, 0.2)", color: "#ff6b6b" },
       accepted: { background: "rgba(76, 175, 80, 0.2)", color: "#51cf66" },
-      pending: { background: "rgba(255, 107, 53, 0.2)", color: GAMYAM_COLORS.orange }
+      pending: { background: "rgba(255, 107, 53, 0.2)", color: GAMYAM_COLORS.orange },
+      'on-hold': { background: "rgba(255, 193, 7, 0.2)", color: "#ffc107" },
+      reconsidered: { background: "rgba(33, 150, 243, 0.2)", color: "#2196F3" }
     };
     return styles[status] || styles.pending;
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      rejected: "Rejected",
+      accepted: "Accepted",
+      pending: "Pending",
+      'on-hold': "On Hold",
+      reconsidered: "Reconsidered"
+    };
+    return labels[status] || status;
   };
 
   return (
@@ -103,6 +140,8 @@ function ApplicationsTable({ applications, onRefresh }) {
             <option value="pending">Pending</option>
             <option value="accepted">Accepted</option>
             <option value="rejected">Rejected</option>
+            <option value="on-hold">On Hold</option>
+            <option value="reconsidered">Reconsidered</option>
           </select>
         </div>
 
@@ -164,12 +203,44 @@ function ApplicationsTable({ applications, onRefresh }) {
                 </td>
                 <td style={styles.td}>{app.skillset || "NA"}</td>
                 <td style={styles.td}>
-                  <span style={{ ...styles.statusBadge, ...getStatusStyle(app.status) }}>
-                    {app.status === "rejected" ? "Rejected" : app.status === "accepted" ? "Accepted" : "Pending"}
-                  </span>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ ...styles.statusBadge, ...getStatusStyle(app.status) }}>
+                      {getStatusLabel(app.status)}
+                    </span>
+                    {app.status === "rejected" && (
+                      <button
+                        style={styles.statusMenuBtn}
+                        onClick={() => setShowStatusMenu(showStatusMenu === app._id ? null : app._id)}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                    )}
+                    {showStatusMenu === app._id && (
+                      <div style={styles.statusMenu}>
+                        <button
+                          style={styles.statusMenuItem}
+                          onClick={() => handleStatusChange(app._id, 'on-hold')}
+                        >
+                          Mark as On Hold
+                        </button>
+                        <button
+                          style={styles.statusMenuItem}
+                          onClick={() => handleStatusChange(app._id, 'reconsidered')}
+                        >
+                          Reconsider Application
+                        </button>
+                        <button
+                          style={styles.statusMenuItem}
+                          onClick={() => handleStatusChange(app._id, 'pending')}
+                        >
+                          Move to Pending
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td style={styles.td}>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <button style={styles.btn} onClick={() => setSelectedApp(app)}>View</button>
                     {app.status !== "rejected" && (
                       <button 
@@ -180,13 +251,21 @@ function ApplicationsTable({ applications, onRefresh }) {
                         {rejecting === app._id ? "..." : "Reject"}
                       </button>
                     )}
-                    {app.status !== "accepted" && (
+                    {app.status === "pending" && (
                       <button 
                         style={{...styles.btn, background: GAMYAM_COLORS.orange}} 
                         onClick={() => handleAccept(app)}
                         disabled={accepting === app._id}
                       >
                         {accepting === app._id ? "..." : "Accept"}
+                      </button>
+                    )}
+                    {(app.status === "accepted" || app.status === "reconsidered") && (
+                      <button 
+                        style={{...styles.btn, ...styles.nextStepBtn}} 
+                        onClick={() => onNavigateToRecruiter(app)}
+                      >
+                        Next Step <ArrowRight size={16} style={{ marginLeft: "4px" }} />
                       </button>
                     )}
                   </div>
@@ -225,7 +304,7 @@ function ApplicationsTable({ applications, onRefresh }) {
               <div style={styles.detailSection}>
                 <h3 style={styles.sectionTitle}>Status</h3>
                 <span style={{ ...styles.statusBadge, ...getStatusStyle(selectedApp.status) }}>
-                  {selectedApp.status === "rejected" ? "Rejected" : selectedApp.status === "accepted" ? "Accepted" : "Pending"}
+                  {getStatusLabel(selectedApp.status)}
                 </span>
               </div>
             </div>
@@ -239,12 +318,20 @@ function ApplicationsTable({ applications, onRefresh }) {
                   Reject
                 </button>
               )}
-              {selectedApp.status !== "accepted" && (
+              {selectedApp.status === "pending" && (
                 <button 
                   style={{...styles.btn, background: GAMYAM_COLORS.orange}} 
                   onClick={() => { handleAccept(selectedApp); setSelectedApp(null); }}
                 >
                   Accept
+                </button>
+              )}
+              {(selectedApp.status === "accepted" || selectedApp.status === "reconsidered") && (
+                <button 
+                  style={{...styles.btn, ...styles.nextStepBtn}} 
+                  onClick={() => { onNavigateToRecruiter(selectedApp); setSelectedApp(null); }}
+                >
+                  Next Step →
                 </button>
               )}
               <button style={styles.btn} onClick={() => setSelectedApp(null)}>Close</button>
@@ -345,18 +432,59 @@ const styles = {
     fontWeight: "600",
     display: "inline-block",
   },
+  statusMenuBtn: {
+    marginLeft: "8px",
+    padding: "2px 4px",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    color: GAMYAM_COLORS.textMuted,
+    verticalAlign: "middle",
+  },
+  statusMenu: {
+    position: "absolute",
+    top: "100%",
+    right: 0,
+    background: GAMYAM_COLORS.darkCard,
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+    borderRadius: "8px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+    zIndex: 100,
+    minWidth: "180px",
+    marginTop: "4px",
+  },
+  statusMenuItem: {
+    display: "block",
+    width: "100%",
+    padding: "10px 16px",
+    background: "transparent",
+    border: "none",
+    color: GAMYAM_COLORS.textLight,
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: "14px",
+    transition: "background 0.2s",
+  },
   btn: {
     padding: "6px 12px",
-    background: GAMYAM_COLORS.orange,
-    color: "#ffffff",
+    background: GAMYAM_COLORS.darkGray,
+    color: GAMYAM_COLORS.textLight,
     border: "none",
-    borderRadius: "0",
+    borderRadius: "4px",
     cursor: "pointer",
     fontSize: "13px",
     fontWeight: "500",
   },
   rejectBtn: {
     background: "#ff2727",
+    color: "#ffffff",
+  },
+  nextStepBtn: {
+    background: "#4CAF50",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
   },
   modalOverlay: {
     position: "fixed",
@@ -364,21 +492,19 @@ const styles = {
     left: 0,
     right: 0,
     bottom: 0,
-    background: "rgba(0,0,0,0.7)",
+    background: "rgba(0,0,0,0.8)",
     display: "flex",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     zIndex: 1000,
-    padding: "20px",
   },
   modalContainer: {
     background: GAMYAM_COLORS.darkCard,
-    borderRadius: "0",
+    borderRadius: "12px",
     width: "90%",
     maxWidth: "600px",
-    maxHeight: "80vh",
-    display: "flex",
-    flexDirection: "column",
+    maxHeight: "90vh",
+    overflow: "hidden",
     border: `1px solid ${GAMYAM_COLORS.border}`,
   },
   modalHeader: {
@@ -403,24 +529,15 @@ const styles = {
   },
   modalContent: {
     padding: "24px",
+    maxHeight: "60vh",
     overflowY: "auto",
-    flex: 1,
-  },
-  modalFooter: {
-    padding: "16px 24px",
-    borderTop: `1px solid ${GAMYAM_COLORS.border}`,
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
   },
   detailSection: {
-    marginBottom: "20px",
-    paddingBottom: "16px",
-    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
+    marginBottom: "24px",
   },
   sectionTitle: {
     fontSize: "16px",
-    fontWeight: "700",
+    fontWeight: "600",
     color: GAMYAM_COLORS.orange,
     marginBottom: "12px",
   },
@@ -428,6 +545,13 @@ const styles = {
     fontSize: "14px",
     color: GAMYAM_COLORS.textMuted,
     marginBottom: "8px",
+  },
+  modalFooter: {
+    padding: "16px 24px",
+    borderTop: `1px solid ${GAMYAM_COLORS.border}`,
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "12px",
   },
 };
 
