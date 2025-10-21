@@ -20,7 +20,7 @@ const GAMYAM_COLORS = {
   border: '#2c2c2d',
 };
 
-function JobAdminPage() {
+function JobAdminPage({ user, onLogout })  {
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -39,22 +39,23 @@ function JobAdminPage() {
   };
 
   const fetchApplications = async () => {
-  try {
-    console.log('🔄 Fetching applications from API...');
-    const res = await axios.get("http://localhost:5000/api/applications");
-    console.log('✅ Applications fetched:', res.data.length);
-    setApplications(res.data);
-  } catch (err) {
-    console.error("❌ Failed to fetch applications:", err);
-    console.error("Error details:", {
-      message: err.message,
-      response: err.response?.data,
-      status: err.response?.status
-    });
-    alert(`Failed to fetch applications: ${err.message}\n\nPlease check:\n1. Backend server is running on port 5000\n2. MongoDB is connected\n3. Check browser console for details`);
-    setApplications([]); // Set empty array to prevent undefined errors
-  }
-};
+    try {
+      console.log('🔄 Fetching applications from API...');
+      const res = await axios.get("http://localhost:5000/api/applications");
+      console.log('✅ Applications fetched:', res.data.length);
+      setApplications(res.data);
+    } catch (err) {
+      console.error("❌ Failed to fetch applications:", err);
+      console.error("Error details:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      alert(`Failed to fetch applications: ${err.message}\n\nPlease check:\n1. Backend server is running on port 5000\n2. MongoDB is connected\n3. Check browser console for details`);
+      setApplications([]);
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
     fetchApplications();
@@ -118,20 +119,22 @@ function JobAdminPage() {
   };
 
   const handleBackFromRecruiter = () => {
-  setSelectedApplicant(null);
-  fetchApplications(); // ✅ This should refresh the table
-};
+    setSelectedApplicant(null);
+    fetchApplications();
+  };
 
-  // If viewing recruiter actions page, show that instead
+  // ✅ CHECK THIS PART - If viewing recruiter actions page
   if (selectedApplicant) {
     return (
       <RecruiterActionsPage 
         applicant={selectedApplicant} 
         onBack={handleBackFromRecruiter} 
+        user={user}
       />
     );
   }
 
+  // ✅ MAIN RETURN STATEMENT
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -140,17 +143,30 @@ function JobAdminPage() {
           <h1 style={{ fontSize: "28px", fontWeight: "700", color: GAMYAM_COLORS.textLight }}>
             Job Administration
           </h1>
-          {activeTab === "jobs" && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {user && (
+              <span style={{ color: GAMYAM_COLORS.textMuted, fontSize: '14px' }}>
+                Welcome, {user.name}
+              </span>
+            )}
+            {activeTab === "jobs" && (
+              <button 
+                style={styles.addButton} 
+                onClick={() => {
+                  setEditingJob(null);
+                  setIsFormOpen(true);
+                }}
+              >
+                <Plus size={20} /> Add New Job
+              </button>
+            )}
             <button 
-              style={styles.addButton} 
-              onClick={() => {
-                setEditingJob(null);
-                setIsFormOpen(true);
-              }}
+              style={{...styles.addButton, background: GAMYAM_COLORS.darkGray}}
+              onClick={onLogout}
             >
-              <Plus size={20} /> Add New Job
+              Logout
             </button>
-          )}
+          </div>
         </div>
 
         {/* Tabs */}

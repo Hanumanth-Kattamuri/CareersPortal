@@ -15,7 +15,13 @@ const GAMYAM_COLORS = {
 
 const GOOGLE_SHEET_ID = '1wgNsZ5mtOCaj6vnvD84ECMnx-Hw3cFzmlUxwiQTUQzo';
 
-function RecruiterActionsPage({ applicant, onBack }) {
+function RecruiterActionsPage({ applicant, onBack, user }) {
+  console.log('🔍 USER PROP:', user);
+  console.log('🔍 USER ROLE:', user?.role);
+  console.log('Is HR?', user?.role === 'hr');
+  console.log('Is Recruiter?', user?.role === 'recruiter');
+  console.log('===============================');
+
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
@@ -40,54 +46,118 @@ function RecruiterActionsPage({ applicant, onBack }) {
   const [isEditing, setIsEditing] = useState(false);
   const [allFeedback, setAllFeedback] = useState("");
   const [isRejected, setIsRejected] = useState(false);
+  const [recruiters, setRecruiters] = useState([]);
+  const [selectedRecruiters, setSelectedRecruiters] = useState([]);
+  const [showRecruiterDropdown, setShowRecruiterDropdown] = useState(false);
+  
+  // Round mapping
+  const roundMap = {
+    'Round 1': 'round1',
+    'Round 2': 'round2',
+    'Round 3': 'round3',
+    'Final Round': 'finalRound'
+  };
 
   useEffect(() => {
     loadRecruiterActions();
   }, [applicant._id]);
 
+  useEffect(() => {
+    fetchRecruiters();
+  }, []);
+
+  useEffect(() => {
+    if (roundStatus && !loading) {
+      loadRecruiterActions();
+    }
+  }, [roundStatus]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showRecruiterDropdown && !event.target.closest('.recruiter-dropdown-container')) {
+        setShowRecruiterDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showRecruiterDropdown]);
+
+  const fetchRecruiters = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/recruiters');
+      setRecruiters(response.data);
+    } catch (err) {
+      console.error('Error fetching recruiters:', err);
+    }
+  };
+
   const loadRecruiterActions = async () => {
-  try {
-    setLoading(true);
-    const response = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
-    const data = response.data;
-    
-    setRoundStatus(data.roundStatus || "Round 1");
-    setAllFeedback(data.feedback || "");
-    setScheduledDate(data.scheduledDate || "");
-    setScheduledTime(data.scheduledTime || "");
-    setInterviewerName(data.interviewerName || "");
-    setInterviewerEmail(data.interviewerEmail || "");
-    setInterviewerPhone(data.interviewerPhone || "");
-    setPanelNumber(data.panelNumber || "");
-    setScheduledBy(data.scheduledBy || "");
-    setInterviewPlace(data.interviewPlace || "");
-    setIsRejected(data.isRejected || false);
-    
-    // Extract ONLY the current round's feedback for editing
-    const feedbackLines = (data.feedback || "").split('\n').filter(line => line.trim());
-    const currentRoundFeedback = feedbackLines.find(line => line.startsWith(`${data.roundStatus}:`));
-    
-    if (currentRoundFeedback) {
-      // Remove the "Round X: " prefix to show only the feedback text
-      const feedbackText = currentRoundFeedback.substring(currentRoundFeedback.indexOf(':') + 1).trim();
-      setFeedback(feedbackText);
-    } else {
-      setFeedback("");
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
+      const data = response.data;
+      
+      setRoundStatus(data.currentRound || "Round 1");
+      setIsRejected(data.isRejected || false);
+      
+      const currentRoundField = roundMap[data.currentRound || "Round 1"];
+      const currentRoundData = data[currentRoundField] || {};
+      
+     // Load current round's data
+      setFeedback(currentRoundData.feedback || "");
+      setScheduledDate(currentRoundData.scheduledDate || "");
+      setScheduledTime(currentRoundData.scheduledTime || "");
+      setInterviewerName(currentRoundData.interviewerName || "");
+      setInterviewerEmail(currentRoundData.interviewerEmail || "");
+      setInterviewerPhone(currentRoundData.interviewerPhone || "");
+      setPanelNumber(currentRoundData.panelNumber || "");
+      setScheduledBy(currentRoundData.scheduledBy || "");
+      setInterviewPlace(currentRoundData.interviewPlace || "");
+      
+      // Parse selected recruiters from saved data
+      if (currentRoundData.interviewerEmail) {
+        const emails = currentRoundData.interviewerEmail.split(',').map(e => e.trim());
+        const selectedRecs = [];
+        emails.forEach(email => {
+          const rec = recruiters.find(r => r.email === email);
+          if (rec) selectedRecs.push(rec);
+        });
+        setSelectedRecruiters(selectedRecs);
+      } else {
+        setSelectedRecruiters([]);
+      }
+      
+      // Build all feedback display
+      let allFeedbackText = "";
+      ['Round 1', 'Round 2', 'Round 3', 'Final Round'].forEach(round => {
+        const roundField = roundMap[round];
+        const roundData = data[roundField];
+        if (roundData && roundData.feedback) {
+          allFeedbackText += `${round}: ${roundData.feedback}\n`;
+        }
+      });
+      setAllFeedback(allFeedbackText.trim());
+      
+      // Set editing mode based on whether schedule exists
+      if (currentRoundData.scheduledDate || currentRoundData.interviewerName) {
+        setIsEditing(false);
+      } else {
+        setIsEditing(true);
+      }
+      
+      console.log('✅ Loaded recruiter actions for round:', data.currentRound);
+    } catch (err) {
+      if (err.response && err.response.status === 404) {
+        setIsEditing(true);
+      } else {
+        console.error('Error loading recruiter actions:', err);
+      }
+    } finally {
+      setLoading(false);
     }
-    
-    if (data.scheduledDate || data.interviewerName) {
-      setIsEditing(false);
-    } else {
-      setIsEditing(true);
-    }
-    
-    console.log('✅ Loaded existing recruiter actions');
-  } catch (err) {
-    console.error('Error loading recruiter actions:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleSendEmail = async () => {
     if (!emailData.subject || !emailData.body) {
@@ -114,28 +184,31 @@ function RecruiterActionsPage({ applicant, onBack }) {
   };
 
   const handleSendInvitation = async () => {
-    if (!scheduledDate || !scheduledTime || !interviewPlace || !interviewerName || !interviewerEmail || !panelNumber) {
-      alert("Please fill in all interview details before sending invitation");
+    if (!scheduledDate || !scheduledTime || !interviewPlace || !selectedRecruiters.length || !panelNumber) {
+      alert("Please fill in all interview details and select at least one interviewer");
       return;
     }
 
     setSending(true);
     try {
+      // Send invitation to applicant AND all selected interviewers
       await axios.post("http://localhost:5000/api/send-interview-invitation", {
         applicantEmail: applicant.email,
         applicantName: applicant.name,
-        interviewerEmail: interviewerEmail,
-        interviewerName: interviewerName,
+        interviewers: selectedRecruiters.map(r => ({
+          email: r.email,
+          name: r.name,
+          phone: r.phone
+        })),
         jobTitle: applicant.jobTitle,
         scheduledDate: scheduledDate,
         scheduledTime: scheduledTime,
         interviewPlace: interviewPlace,
         roundStatus: roundStatus,
-        panelNumber: panelNumber,
-        interviewerPhone: interviewerPhone
+        panelNumber: panelNumber
       });
       
-      alert("Interview invitation sent to both applicant and interviewer!");
+      alert(`Interview invitation sent to applicant and ${selectedRecruiters.length} interviewer(s)!`);
       setShowInviteModal(false);
     } catch (err) {
       console.error("Error sending invitation:", err);
@@ -145,73 +218,86 @@ function RecruiterActionsPage({ applicant, onBack }) {
   };
 
   const handleSaveScheduleDetails = async () => {
-  if (!scheduledDate || !scheduledTime || !interviewerName || !interviewerEmail || !scheduledBy || !interviewPlace || !panelNumber) {
-    alert("Please fill in all schedule details");
-    return;
-  }
+    if (!scheduledDate || !scheduledTime || !selectedRecruiters.length || !scheduledBy || !interviewPlace || !panelNumber) {
+      alert("Please fill in all schedule details and select at least one interviewer");
+      return;
+    }
 
-  setSaving(true);
-  try {
-    // Get existing recruiter action first
-    const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
-    
-    await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
-      roundStatus,
-      feedback: existingAction.data.feedback || '', // Keep existing feedback, don't touch it
-      scheduledDate,
-      scheduledTime,
-      interviewerName,
-      interviewerEmail,
-      interviewerPhone,
-      panelNumber,
-      scheduledBy,
-      interviewPlace,
-      isRejected,
-      rejectionRound: isRejected ? roundStatus : ''
-    });
-    alert("Schedule details saved successfully!");
-    setIsEditing(false);
-    loadRecruiterActions();
-  } catch (err) {
-    console.error("Error saving schedule details:", err);
-    alert("Failed to save schedule details");
-  }
-  setSaving(false);
-};
+    // Build comma-separated strings
+    const interviewerNames = selectedRecruiters.map(r => r.name).join(', ');
+    const interviewerEmails = selectedRecruiters.map(r => r.email).join(', ');
+    const interviewerPhones = selectedRecruiters.map(r => r.phone || '').join(', ');
+
+    setSaving(true);
+    try {
+      await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
+        roundStatus,
+        feedback: '',
+        scheduledDate,
+        scheduledTime,
+        interviewerName: interviewerNames,
+        interviewerEmail: interviewerEmails,
+        interviewerPhone: interviewerPhones,
+        panelNumber,
+        scheduledBy,
+        interviewPlace,
+        isRejected: false,
+        rejectionRound: ''
+      });
+      
+      alert("Schedule details saved successfully!");
+      setIsEditing(false);
+      await loadRecruiterActions();
+      
+    } catch (err) {
+      console.error("Error saving schedule details:", err);
+      alert("Failed to save schedule details");
+    }
+    setSaving(false);
+  };
 
   const handleSaveFeedback = async () => {
-  if (!feedback.trim()) {
-    alert("Please enter feedback before saving");
-    return;
-  }
+    if (!feedback.trim()) {
+      alert("Please enter feedback before saving");
+      return;
+    }
 
-  setSaving(true);
-  try {
-    // Get existing recruiter action to preserve schedule details
-    const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
-    
-    await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
-      roundStatus,
-      feedback: feedback.trim(), // Only send the current feedback text
-      scheduledDate: existingAction.data.scheduledDate || scheduledDate,
-      scheduledTime: existingAction.data.scheduledTime || scheduledTime,
-      interviewerName: existingAction.data.interviewerName || interviewerName,
-      interviewerEmail: existingAction.data.interviewerEmail || interviewerEmail,
-      interviewerPhone: existingAction.data.interviewerPhone || interviewerPhone,
-      panelNumber: existingAction.data.panelNumber || panelNumber,
-      scheduledBy: existingAction.data.scheduledBy || scheduledBy,
-      interviewPlace: existingAction.data.interviewPlace || interviewPlace,
-      isRejected,
-      rejectionRound: isRejected ? roundStatus : ''
-    });
-    alert("Feedback saved successfully!");
-    await loadRecruiterActions(); // Reload to show updated feedback
-  } catch (err) {
-    console.error("Error saving feedback:", err);
-    alert("Failed to save feedback");
-  }
-  setSaving(false);
-};
+    setSaving(true);
+    try {
+      const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
+      
+      const isRecruiter = user.role === 'recruiter';
+      const isHR = user.role === 'hr';
+      
+      await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
+        roundStatus,
+        feedback: feedback.trim(),
+        scheduledDate: existingAction.data[roundMap[roundStatus]]?.scheduledDate || scheduledDate,
+        scheduledTime: existingAction.data[roundMap[roundStatus]]?.scheduledTime || scheduledTime,
+        interviewerName: existingAction.data[roundMap[roundStatus]]?.interviewerName || interviewerName,
+        interviewerEmail: existingAction.data[roundMap[roundStatus]]?.interviewerEmail || interviewerEmail,
+        interviewerPhone: existingAction.data[roundMap[roundStatus]]?.interviewerPhone || interviewerPhone,
+        panelNumber: existingAction.data[roundMap[roundStatus]]?.panelNumber || panelNumber,
+        scheduledBy: existingAction.data[roundMap[roundStatus]]?.scheduledBy || scheduledBy,
+        interviewPlace: existingAction.data[roundMap[roundStatus]]?.interviewPlace || interviewPlace,
+        isRejected,
+        rejectionRound: isRejected ? roundStatus : '',
+        syncToSheets: isHR,
+        recruiterCompleted: isRecruiter
+      });
+      
+      const successMessage = isRecruiter 
+        ? "Feedback saved and marked as completed!" 
+        : "Feedback saved and synced to Google Sheets!";
+      
+      alert(successMessage);
+      await loadRecruiterActions();
+    } catch (err) {
+      console.error("Error saving feedback:", err);
+      alert("Failed to save feedback");
+    }
+    setSaving(false);
+  };
 
   const handleRejectCandidate = async () => {
     if (!window.confirm(`Are you sure you want to reject ${applicant.name} in ${roundStatus}?`)) {
@@ -256,7 +342,6 @@ function RecruiterActionsPage({ applicant, onBack }) {
       return;
     }
 
-    const nextRound = roundOrder[currentIndex + 1];
     setShowPromoteModal(true);
   };
 
@@ -274,6 +359,7 @@ function RecruiterActionsPage({ applicant, onBack }) {
 
       alert(`Candidate promoted to ${nextRound} successfully! Email sent.`);
       setShowPromoteModal(false);
+      setRoundStatus(nextRound);
       loadRecruiterActions();
     } catch (err) {
       console.error("Error promoting candidate:", err);
@@ -281,33 +367,32 @@ function RecruiterActionsPage({ applicant, onBack }) {
     }
     setSending(false);
   };
-  // REPLACE the existing handleSendSelectionEmail function with:
-const handleSendSelectionEmail = async () => {
-  if (!window.confirm(`Send selection email to ${applicant.name}?`)) {
-    return;
-  }
 
-  setSending(true);
-  try {
-    await axios.post('http://localhost:5000/api/send-selection-email', {
-      to: applicant.email,
-      applicantName: applicant.name,
-      jobTitle: applicant.jobTitle,
-      applicationId: applicant._id
-    });
-
-    alert('Selection email sent successfully! Status updated to Selected.');
-    
-    // Navigate back and refresh
-    if (onBack) {
-      onBack(); // This will trigger refresh in parent component
+  const handleSendSelectionEmail = async () => {
+    if (!window.confirm(`Send selection email to ${applicant.name}?`)) {
+      return;
     }
-  } catch (err) {
-    console.error('Error sending selection email:', err);
-    alert('Failed to send selection email');
-  }
-  setSending(false);
-};
+
+    setSending(true);
+    try {
+      await axios.post('http://localhost:5000/api/send-selection-email', {
+        to: applicant.email,
+        applicantName: applicant.name,
+        jobTitle: applicant.jobTitle,
+        applicationId: applicant._id
+      });
+
+      alert('Selection email sent successfully! Status updated to Selected.');
+      
+      if (onBack) {
+        onBack();
+      }
+    } catch (err) {
+      console.error('Error sending selection email:', err);
+      alert('Failed to send selection email');
+    }
+    setSending(false);
+  };
 
   const handleViewResume = async () => {
     try {
@@ -398,12 +483,16 @@ const handleSendSelectionEmail = async () => {
             <ArrowLeft size={20} /> Back
           </button>
           <h1 style={styles.title}>Recruiter Actions Page</h1>
-          <button style={styles.spreadsheetBtn} onClick={handleViewSpreadsheet}>
-            <ExternalLink size={18} /> View Spreadsheet
-          </button>
+          {/* View Spreadsheet - ONLY SHOW TO HR */}
+          {user && user.role === 'hr' && (
+            <button style={styles.spreadsheetBtn} onClick={handleViewSpreadsheet}>
+              <ExternalLink size={18} /> View Spreadsheet
+            </button>
+          )}
         </div>
 
         <div style={styles.mainGrid}>
+          {/* Left Section - Applicant Profile */}
           <div style={styles.card}>
             <h2 style={styles.cardTitle}>Applicant Profile</h2>
             <div style={styles.profileSection}>
@@ -438,24 +527,28 @@ const handleSendSelectionEmail = async () => {
             </button>
           </div>
 
+          {/* Middle Section */}
           <div style={styles.middleSection}>
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Communication</h2>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  style={styles.actionBtn}
-                  onClick={() => setShowEmailModal(true)}
-                >
-                  <Mail size={18} /> Send Email
-                </button>
-                <button 
-                  style={{...styles.actionBtn, background: '#4CAF50'}}
-                  onClick={() => setShowInviteModal(true)}
-                >
-                  <Calendar size={18} /> Send Invitation
-                </button>
+            {/* Communication - ONLY SHOW TO HR */}
+            {user && user.role === 'hr' && (
+              <div style={styles.card}>
+                <h2 style={styles.cardTitle}>Communication</h2>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    style={styles.actionBtn}
+                    onClick={() => setShowEmailModal(true)}
+                  >
+                    <Mail size={18} /> Send Email
+                  </button>
+                  <button 
+                    style={{...styles.actionBtn, background: '#4CAF50'}}
+                    onClick={() => setShowInviteModal(true)}
+                  >
+                    <Calendar size={18} /> Send Invitation
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>Interview Round Status</h2>
@@ -463,7 +556,7 @@ const handleSendSelectionEmail = async () => {
                 value={roundStatus} 
                 onChange={(e) => setRoundStatus(e.target.value)}
                 style={styles.select}
-                disabled={!isEditing}
+                disabled={user.role === 'recruiter' || !isEditing}
               >
                 <option value="Round 1">Round 1</option>
                 <option value="Round 2">Round 2</option>
@@ -485,128 +578,255 @@ const handleSendSelectionEmail = async () => {
               </div>
             </div>
 
-            <div style={styles.card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                <h2 style={{...styles.cardTitle, marginBottom: 0}}>Schedule Interview</h2>
-                {!isEditing && (
-                  <button 
-                    style={styles.editBtn}
-                    onClick={() => setIsEditing(true)}
+            {/* Schedule Interview - ONLY SHOW TO HR */}
+            {user && user.role === 'hr' && (
+              <div style={styles.card}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h2 style={{...styles.cardTitle, marginBottom: 0}}>Schedule Interview</h2>
+                  {!isEditing && (
+                    <button 
+                      style={styles.editBtn}
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Edit2 size={16} /> Edit
+                    </button>
+                  )}
+                </div>
+                
+                <label style={styles.label}>Date:</label>
+                <input 
+                  type="date"
+                  value={scheduledDate}
+                  onChange={(e) => setScheduledDate(e.target.value)}
+                  style={styles.input}
+                  disabled={!isEditing}
+                />
+
+                <label style={styles.label}>Time:</label>
+                <input 
+                  type="time"
+                  value={scheduledTime}
+                  onChange={(e) => setScheduledTime(e.target.value)}
+                  style={styles.input}
+                  disabled={!isEditing}
+                />
+
+                <label style={styles.label}>
+                  Select Recruiter/Interviewer: 
+                  {selectedRecruiters.length > 0 && (
+                    <span style={{
+                      marginLeft: '10px',
+                      background: GAMYAM_COLORS.orange,
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: '600'
+                    }}>
+                      {selectedRecruiters.length} selected
+                    </span>
+                  )}
+                </label>
+                <div style={{ position: 'relative' }} className="recruiter-dropdown-container">
+                  <div 
+                    onClick={() => isEditing && setShowRecruiterDropdown(!showRecruiterDropdown)}
+                    style={{
+                      ...styles.input,
+                      cursor: isEditing ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      minHeight: '42px',
+                      background: isEditing ? GAMYAM_COLORS.darkBg : GAMYAM_COLORS.darkGray
+                    }}
                   >
-                    <Edit2 size={16} /> Edit
+                    <span style={{ color: selectedRecruiters.length ? GAMYAM_COLORS.textLight : GAMYAM_COLORS.textDim }}>
+                      {selectedRecruiters.length 
+                        ? `${selectedRecruiters.length} interviewer(s) selected` 
+                        : '-- Select Interviewers (Max 3) --'}
+                    </span>
+                    <span style={{ fontSize: '12px', color: GAMYAM_COLORS.textDim }}>▼</span>
+                  </div>
+                  
+                  {showRecruiterDropdown && isEditing && (
+                    <div style={styles.dropdownList}>
+                      {recruiters.length === 0 ? (
+                        <div style={{ padding: '20px', textAlign: 'center', color: GAMYAM_COLORS.textDim }}>
+                          No recruiters available
+                        </div>
+                      ) : (
+                        recruiters.map(recruiter => {
+                          const isSelected = selectedRecruiters.some(r => r._id === recruiter._id);
+                          return (
+                            <label 
+                              key={recruiter._id} 
+                              style={{
+                                ...styles.checkboxItem,
+                                background: isSelected ? 'rgba(255, 124, 38, 0.1)' : 'transparent'
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseEnter={(e) => {
+                                if (!isSelected) e.currentTarget.style.background = GAMYAM_COLORS.darkGray;
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isSelected) e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    if (selectedRecruiters.length < 3) {
+                                      setSelectedRecruiters([...selectedRecruiters, recruiter]);
+                                    } else {
+                                      alert('Maximum 3 interviewers allowed');
+                                    }
+                                  } else {
+                                    setSelectedRecruiters(selectedRecruiters.filter(r => r._id !== recruiter._id));
+                                  }
+                                }}
+                                style={{ marginRight: '10px', cursor: 'pointer' }}
+                              />
+                              <span style={{ flex: 1, color: GAMYAM_COLORS.textLight }}>
+                                {recruiter.name}
+                              </span>
+                              <span style={{ fontSize: '12px', color: GAMYAM_COLORS.textDim }}>
+                                {recruiter.email}
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {selectedRecruiters.length > 0 && (
+                  <div style={styles.recruiterInfo}>
+                    <p style={{ ...styles.infoText, fontWeight: '600', color: GAMYAM_COLORS.orange }}>
+                      Selected Interviewers:
+                    </p>
+                    {selectedRecruiters.map((rec, idx) => (
+                      <div key={rec._id} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: idx < selectedRecruiters.length - 1 ? `1px solid ${GAMYAM_COLORS.border}` : 'none' }}>
+                        <p style={styles.infoText}>
+                          <strong>{idx + 1}. {rec.name}</strong>
+                        </p>
+                        <p style={styles.infoText}>
+                          📧 {rec.email}
+                        </p>
+                        <p style={styles.infoText}>
+                          📱 {rec.phone || 'Not provided'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label style={styles.label}>Panel Number:</label>
+                <input 
+                  type="text"
+                  value={panelNumber}
+                  onChange={(e) => setPanelNumber(e.target.value)}
+                  placeholder="Enter panel number"
+                  style={styles.input}
+                  disabled={!isEditing}
+                />
+
+                <label style={styles.label}>Scheduled By:</label>
+                <input 
+                  type="text"
+                  value={scheduledBy}
+                  onChange={(e) => setScheduledBy(e.target.value)}
+                  placeholder="Enter your name"
+                  style={styles.input}
+                  disabled={!isEditing}
+                />
+
+                <label style={styles.label}>Interview Place:</label>
+                <input 
+                  type="text"
+                  value={interviewPlace}
+                  onChange={(e) => setInterviewPlace(e.target.value)}
+                  placeholder="Enter interview location/venue"
+                  style={styles.input}
+                  disabled={!isEditing}
+                />
+
+                {isEditing && (
+                  <button 
+                    style={styles.saveScheduleBtn}
+                    onClick={handleSaveScheduleDetails}
+                    disabled={saving}
+                  >
+                    <Save size={16} /> {saving ? "Saving..." : "Save Schedule Details"}
                   </button>
                 )}
               </div>
-              
-              <label style={styles.label}>Date:</label>
-              <input 
-                type="date"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Time:</label>
-              <input 
-                type="time"
-                value={scheduledTime}
-                onChange={(e) => setScheduledTime(e.target.value)}
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Interviewer Name:</label>
-              <input 
-                type="text"
-                value={interviewerName}
-                onChange={(e) => setInterviewerName(e.target.value)}
-                placeholder="Enter interviewer name"
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Interviewer Email:</label>
-              <input 
-                type="email"
-                value={interviewerEmail}
-                onChange={(e) => setInterviewerEmail(e.target.value)}
-                placeholder="Enter interviewer email"
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Interviewer Phone:</label>
-              <input 
-                type="tel"
-                value={interviewerPhone}
-                onChange={(e) => setInterviewerPhone(e.target.value)}
-                placeholder="Enter interviewer phone"
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Panel Number:</label>
-              <input 
-                type="text"
-                value={panelNumber}
-                onChange={(e) => setPanelNumber(e.target.value)}
-                placeholder="Enter panel number"
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Scheduled By:</label>
-              <input 
-                type="text"
-                value={scheduledBy}
-                onChange={(e) => setScheduledBy(e.target.value)}
-                placeholder="Enter your name"
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              <label style={styles.label}>Interview Place:</label>
-              <input 
-                type="text"
-                value={interviewPlace}
-                onChange={(e) => setInterviewPlace(e.target.value)}
-                placeholder="Enter interview location/venue"
-                style={styles.input}
-                disabled={!isEditing}
-              />
-
-              {isEditing && (
-                <button 
-                  style={styles.saveScheduleBtn}
-                  onClick={handleSaveScheduleDetails}
-                  disabled={saving}
-                >
-                  <Save size={16} /> {saving ? "Saving..." : "Save Schedule Details"}
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
+          {/* Right Section */}
           <div style={styles.rightSection}>
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Feedback for {roundStatus}</h2>
-              <p style={styles.feedbackLabel}>Write detailed feedback:</p>
-              <textarea 
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Enter detailed feedback about the candidate's performance, technical skills, communication, etc."
-                style={styles.textarea}
-                rows={8}
-              />
-              <button 
-                style={styles.saveBtn}
-                onClick={handleSaveFeedback}
-                disabled={saving}
-              >
-                <Save size={16} /> {saving ? "Saving..." : "Save Feedback"}
-              </button>
-            </div>
+            {/* Feedback Section - HR View */}
+            {user && user.role === 'hr' && (
+              <div style={styles.card}>
+                <h2 style={styles.cardTitle}>Feedback for {roundStatus}</h2>
+                
+                {/* Show recruiter's feedback if exists */}
+                {allFeedback && (
+                  <div style={styles.recruiterFeedbackBox}>
+                    <p style={styles.feedbackLabel}>Recruiter's Feedback:</p>
+                    <div style={styles.recruiterFeedbackContent}>
+                      {allFeedback.split('\n').map((line, idx) => (
+                        <p key={idx} style={{ margin: '8px 0', color: GAMYAM_COLORS.textMuted, fontSize: '14px' }}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <p style={styles.feedbackLabel}>
+                  {allFeedback ? 'Add Additional HR Feedback:' : 'Write detailed feedback:'}
+                </p>
+                <textarea 
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Enter detailed feedback about the candidate's performance, technical skills, communication, etc."
+                  style={styles.textarea}
+                  rows={8}
+                />
+                <button 
+                  style={styles.saveBtn}
+                  onClick={handleSaveFeedback}
+                  disabled={saving}
+                >
+                  <Save size={16} /> {saving ? "Saving..." : "Save Feedback & Sync to Sheets"}
+                </button>
+              </div>
+            )}
+
+            {/* Recruiter View - Simple Feedback Box */}
+            {user && user.role === 'recruiter' && (
+              <div style={styles.card}>
+                <h2 style={styles.cardTitle}>Your Feedback for {roundStatus}</h2>
+                <p style={styles.feedbackLabel}>Write your feedback:</p>
+                <textarea 
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="Enter your feedback about the candidate's interview performance..."
+                  style={styles.textarea}
+                  rows={8}
+                />
+                <button 
+                  style={styles.saveBtn}
+                  onClick={handleSaveFeedback}
+                  disabled={saving}
+                >
+                  <Save size={16} /> {saving ? "Saving..." : "Save & Mark Complete"}
+                </button>
+              </div>
+            )}
 
             <div style={styles.card}>
               <h2 style={styles.cardTitle}>All Feedback History</h2>
@@ -623,38 +843,41 @@ const handleSendSelectionEmail = async () => {
               </div>
             </div>
 
-            <div style={styles.card}>
-  <h2 style={styles.cardTitle}>Round Actions</h2>
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-    {roundStatus !== "Final Round" && (
-      <button 
-        style={styles.promoteBtn}
-        onClick={handlePromoteToNextRound}
-        disabled={saving}
-      >
-        <CheckCircle size={18} /> Promote to Next Round
-      </button>
-    )}
-    
-    {roundStatus === "Final Round" && (
-      <button 
-        style={{...styles.promoteBtn, background: '#2196F3'}}
-        onClick={handleSendSelectionEmail}
-        disabled={saving}
-      >
-        <Mail size={18} /> Send Selection Email
-      </button>
-    )}
-    
-    <button 
-      style={styles.rejectBtn}
-      onClick={handleRejectCandidate}
-      disabled={saving}
-    >
-      <XCircle size={18} /> Reject Candidate
-    </button>
-  </div>
-</div>
+            {/* Round Actions - ONLY SHOW TO HR */}
+            {user && user.role === 'hr' && (
+              <div style={styles.card}>
+                <h2 style={styles.cardTitle}>Round Actions</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {roundStatus !== "Final Round" && (
+                    <button 
+                      style={styles.promoteBtn}
+                      onClick={handlePromoteToNextRound}
+                      disabled={saving}
+                    >
+                      <CheckCircle size={18} /> Promote to Next Round
+                    </button>
+                  )}
+                  
+                  {roundStatus === "Final Round" && (
+                    <button 
+                      style={{...styles.promoteBtn, background: '#2196F3'}}
+                      onClick={handleSendSelectionEmail}
+                      disabled={saving}
+                    >
+                      <Mail size={18} /> Send Selection Email
+                    </button>
+                  )}
+                  
+                  <button 
+                    style={styles.rejectBtn}
+                    onClick={handleRejectCandidate}
+                    disabled={saving}
+                  >
+                    <XCircle size={18} /> Reject Candidate
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -731,7 +954,7 @@ const handleSendSelectionEmail = async () => {
 
               <div style={styles.modalContent}>
                 <div style={styles.modalInfo}>
-                  <strong>To:</strong> {applicant.email} & {interviewerEmail || 'Interviewer email not set'}
+                  <strong>To:</strong> {applicant.email} & {selectedRecruiters.map(r => r.email).join(', ') || 'No interviewers selected'}
                 </div>
 
                 <div style={styles.invitePreview}>
@@ -749,13 +972,7 @@ const handleSendSelectionEmail = async () => {
                     <strong>Venue:</strong> {interviewPlace || 'Not set'}
                   </div>
                   <div style={styles.previewItem}>
-                    <strong>Interviewer:</strong> {interviewerName || 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Interviewer Email:</strong> {interviewerEmail || 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Interviewer Phone:</strong> {interviewerPhone || 'Not set'}
+                    <strong>Interviewers:</strong> {selectedRecruiters.map(r => r.name).join(', ') || 'Not set'}
                   </div>
                   <div style={styles.previewItem}>
                     <strong>Panel Number:</strong> {panelNumber || 'Not set'}
@@ -765,9 +982,9 @@ const handleSendSelectionEmail = async () => {
                   </div>
                 </div>
 
-                {(!scheduledDate || !scheduledTime || !interviewPlace || !interviewerName || !interviewerEmail || !panelNumber) && (
+                {(!scheduledDate || !scheduledTime || !interviewPlace || !selectedRecruiters.length || !panelNumber) && (
                   <div style={styles.warningBox}>
-                    ⚠️ Please fill in all interview details before sending the invitation
+                    ⚠️ Please fill in all interview details and select at least one interviewer
                   </div>
                 )}
               </div>
@@ -776,7 +993,7 @@ const handleSendSelectionEmail = async () => {
                 <button 
                   style={{...styles.sendEmailBtn, background: '#4CAF50'}}
                   onClick={handleSendInvitation}
-                  disabled={sending || !scheduledDate || !scheduledTime || !interviewPlace || !interviewerName || !interviewerEmail || !panelNumber}
+                  disabled={sending || !scheduledDate || !scheduledTime || !interviewPlace || !selectedRecruiters.length || !panelNumber}
                 >
                   <Send size={16} /> {sending ? "Sending..." : "Send Invitation"}
                 </button>
@@ -847,7 +1064,6 @@ const handleSendSelectionEmail = async () => {
     </div>
   );
 }
-
 
 const styles = {
   page: {
@@ -1271,6 +1487,50 @@ const styles = {
     cursor: "pointer",
     fontSize: "14px",
     fontWeight: "600",
+  },
+  recruiterInfo: {
+    background: GAMYAM_COLORS.darkGray,
+    padding: '12px 16px',
+    borderRadius: '6px',
+    marginTop: '12px',
+  },
+  infoText: {
+    fontSize: '14px',
+    color: GAMYAM_COLORS.textMuted,
+    margin: '6px 0',
+  },
+  dropdownList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    background: GAMYAM_COLORS.darkCard,
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+    borderRadius: '6px',
+    marginTop: '4px',
+    maxHeight: '250px',
+    overflowY: 'auto',
+    zIndex: 1000,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+  },
+  checkboxItem: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '12px 16px',
+    cursor: 'pointer',
+    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
+    transition: 'background 0.2s ease',
+    gap: '12px',
+  },
+  recruiterFeedbackBox: {
+    background: GAMYAM_COLORS.darkGray,
+    padding: '15px',
+    borderRadius: '8px',
+    marginBottom: '16px',
+    border: `1px solid ${GAMYAM_COLORS.border}`,
+  },
+  recruiterFeedbackContent: {
+    marginTop: '10px',
   },
 };
 
