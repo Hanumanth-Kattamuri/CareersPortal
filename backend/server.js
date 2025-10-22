@@ -514,6 +514,20 @@ const emailTemplates = {
   `
 };
 
+// ==================== SCREENING QUESTIONS SCHEMA ====================
+const screeningAnswerSchema = new mongoose.Schema({
+  applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application', required: true },
+  applicantName: { type: String, required: true },
+  applicantEmail: { type: String, required: true },
+  jobTitle: { type: String, required: true },
+  answers: [{
+    question: { type: String, required: true },
+    answer: { type: String, required: true }
+  }],
+  submittedAt: { type: Date, default: Date.now }
+});
+
+const ScreeningAnswer = mongoose.model('ScreeningAnswer', screeningAnswerSchema);
 // ==================== RESUME PARSING FUNCTIONS ====================
 
 function extractEmail(text) {
@@ -2036,6 +2050,102 @@ app.post('/api/applications/:id/mark-reviewed', async (req, res) => {
   }
 });
 
+// ==================== SCREENING QUESTIONS ROUTES ====================
+
+// Submit screening answers
+app.post('/api/screening-answers', async (req, res) => {
+  try {
+    const { applicationId, applicantName, applicantEmail, jobTitle, answers } = req.body;
+    
+    console.log('📝 Saving screening answers for application:', applicationId);
+    
+    const screeningAnswer = new ScreeningAnswer({
+      applicationId,
+      applicantName,
+      applicantEmail,
+      jobTitle,
+      answers
+    });
+    
+    await screeningAnswer.save();
+    console.log('✅ Screening answers saved successfully');
+    
+    res.status(201).json({ 
+      message: 'Screening answers submitted successfully',
+      screeningAnswer 
+    });
+  } catch (err) {
+    console.error('❌ Error saving screening answers:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get screening answers for a specific application
+app.get('/api/screening-answers/:applicationId', async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    
+    console.log('\n🔍 ===== FETCHING SCREENING ANSWERS =====');
+    console.log('📋 Requested Application ID:', applicationId);
+    
+    const screeningAnswer = await ScreeningAnswer.findOne({ applicationId });
+    
+    if (!screeningAnswer) {
+      console.log('❌ No screening answers found');
+      
+      // ✅ DEBUG: Show what IDs exist in the database
+      const allAnswers = await ScreeningAnswer.find().limit(5);
+      console.log('📊 Sample application IDs with answers:');
+      allAnswers.forEach(a => console.log(`   - ${a.applicationId}`));
+      console.log('=======================================\n');
+      
+      return res.status(404).json({ message: 'No screening answers found' });
+    }
+    
+    console.log('✅ Found screening answers!');
+    console.log('📊 Questions answered:', screeningAnswer.answers.length);
+    console.log('=======================================\n');
+    
+    res.json(screeningAnswer);
+  } catch (err) {
+    console.error('❌ Error fetching screening answers:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ DEBUG ENDPOINT - Check all screening answers
+app.get('/api/debug/screening-answers', async (req, res) => {
+  try {
+    const allScreeningAnswers = await ScreeningAnswer.find().sort({ submittedAt: -1 });
+    
+    const summary = {
+      total: allScreeningAnswers.length,
+      applications: allScreeningAnswers.map(sa => ({
+        applicationId: sa.applicationId,
+        applicantName: sa.applicantName,
+        email: sa.applicantEmail,
+        questionsAnswered: sa.answers.length,
+        submittedAt: sa.submittedAt
+      }))
+    };
+    
+    console.log('📊 ALL SCREENING ANSWERS:', JSON.stringify(summary, null, 2));
+    res.json(summary);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all screening answers (for HR/Recruiter dashboard)
+app.get('/api/screening-answers', async (req, res) => {
+  try {
+    const answers = await ScreeningAnswer.find().sort({ submittedAt: -1 });
+    res.json(answers);
+  } catch (err) {
+    console.error('Error fetching all screening answers:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 // Start server
 const PORT = 5000;
 app.listen(PORT, () => {

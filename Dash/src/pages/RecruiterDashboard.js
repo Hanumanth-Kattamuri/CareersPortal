@@ -18,6 +18,8 @@ function RecruiterDashboard({ user, onLogout }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
+  const [screeningAnswers, setScreeningAnswers] = useState({});
+const [loadingScreening, setLoadingScreening] = useState({});
 
   useEffect(() => {
     fetchMyApplications();
@@ -38,6 +40,19 @@ function RecruiterDashboard({ user, onLogout }) {
 
   const handleNavigateToRecruiter = (applicant) => {
   setSelectedApplicant(applicant);
+};
+const fetchScreeningAnswers = async (applicationId) => {
+  try {
+    setLoadingScreening(prev => ({ ...prev, [applicationId]: true }));
+    const response = await axios.get(`http://localhost:5000/api/screening-answers/${applicationId}`);
+    setScreeningAnswers(prev => ({ ...prev, [applicationId]: response.data }));
+  } catch (err) {
+    if (err.response?.status !== 404) {
+      console.error('Error loading screening answers:', err);
+    }
+  } finally {
+    setLoadingScreening(prev => ({ ...prev, [applicationId]: false }));
+  }
 };
 
 const handleBackFromRecruiter = () => {
@@ -111,10 +126,14 @@ if (selectedApplicant) {
           </div>
         ) : (
           <ApplicationsTable 
-            applications={applications}
-            onRefresh={fetchMyApplications}
-            onNavigateToRecruiter={handleNavigateToRecruiter}
-          />
+  applications={applications}
+  onRefresh={fetchMyApplications}
+  onNavigateToRecruiter={handleNavigateToRecruiter}
+  screeningAnswers={screeningAnswers}
+  loadingScreening={loadingScreening}
+  onFetchScreening={fetchScreeningAnswers}
+/>
+
         )}
       </div>
     </div>

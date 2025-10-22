@@ -49,6 +49,8 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
   const [recruiters, setRecruiters] = useState([]);
   const [selectedRecruiters, setSelectedRecruiters] = useState([]);
   const [showRecruiterDropdown, setShowRecruiterDropdown] = useState(false);
+  const [screeningAnswers, setScreeningAnswers] = useState(null);
+const [loadingScreening, setLoadingScreening] = useState(false);
   
   // Round mapping
   const roundMap = {
@@ -67,10 +69,17 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
   }, []);
 
   useEffect(() => {
-    if (roundStatus && !loading) {
-      loadRecruiterActions();
-    }
-  }, [roundStatus]);
+  if (roundStatus && !loading) {
+    loadRecruiterActions();
+  }
+}, [roundStatus]);
+
+// ✅ NEW: Load screening answers on component mount
+useEffect(() => {
+  if (applicant && applicant._id) {
+    loadScreeningAnswers();
+  }
+}, [applicant._id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -158,6 +167,27 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
       setLoading(false);
     }
   };
+
+  const loadScreeningAnswers = async () => {
+  try {
+    setLoadingScreening(true);
+    console.log('🔍 Loading screening answers for:', applicant._id); // ✅ DEBUG
+    
+    const response = await axios.get(`http://localhost:5000/api/screening-answers/${applicant._id}`);
+    
+    console.log('✅ Screening answers loaded:', response.data); // ✅ DEBUG
+    setScreeningAnswers(response.data);
+  } catch (err) {
+    if (err.response?.status === 404) {
+      console.log('ℹ️ No screening answers found (404)'); // ✅ DEBUG
+      setScreeningAnswers(null);
+    } else {
+      console.error('❌ Error loading screening answers:', err);
+    }
+  } finally {
+    setLoadingScreening(false);
+  }
+};
 
   const handleSendEmail = async () => {
     if (!emailData.subject || !emailData.body) {
@@ -292,6 +322,8 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
       
       alert(successMessage);
       await loadRecruiterActions();
+
+      
     } catch (err) {
       console.error("Error saving feedback:", err);
       alert("Failed to save feedback");
@@ -698,6 +730,7 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
                           );
                         })
                       )}
+                      
                     </div>
                   )}
                 </div>
@@ -763,7 +796,70 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
                 )}
               </div>
             )}
-          </div>
+            {/* ✅ SCREENING ANSWERS - NEW CARD HERE */}
+        <div style={styles.card}>
+          <h2 style={styles.cardTitle}>📋 Screening Questions</h2>
+          
+          {loadingScreening ? (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <p style={{ color: GAMYAM_COLORS.textMuted }}>Loading screening answers...</p>
+            </div>
+          ) : screeningAnswers && screeningAnswers.answers && screeningAnswers.answers.length > 0 ? (
+            <div style={styles.feedbackDisplay}>
+              {screeningAnswers.answers.map((item, idx) => (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    marginBottom: '16px', 
+                    paddingBottom: '16px', 
+                    borderBottom: idx < screeningAnswers.answers.length - 1 ? `1px solid ${GAMYAM_COLORS.border}` : 'none' 
+                  }}
+                >
+                  <p style={{ 
+                    color: GAMYAM_COLORS.orange, 
+                    fontWeight: '600', 
+                    marginBottom: '8px', 
+                    fontSize: '14px' 
+                  }}>
+                    Q{idx + 1}. {item.question}
+                  </p>
+                  <p style={{ 
+                    color: GAMYAM_COLORS.textMuted, 
+                    margin: 0, 
+                    fontSize: '14px', 
+                    lineHeight: '1.6',
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {item.answer}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <p style={{ color: GAMYAM_COLORS.textDim, fontSize: '14px' }}>
+                ℹ️ No screening answers submitted yet
+              </p>
+              <button 
+                onClick={loadScreeningAnswers}
+                style={{
+                  marginTop: '10px',
+                  padding: '8px 16px',
+                  background: GAMYAM_COLORS.orange,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}
+              >
+                🔄 Retry Loading
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
           {/* Right Section */}
           <div style={styles.rightSection}>
@@ -878,6 +974,7 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
                 </div>
               </div>
             )}
+            
           </div>
         </div>
 

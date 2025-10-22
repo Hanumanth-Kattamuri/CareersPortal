@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import ScreeningQuestions from '../components/ScreeningQuestions';
+import { MapPin, Briefcase, DollarSign, Building2, Heart, BookOpen, TrendingUp } from 'lucide-react';
 
 const states = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -20,6 +22,8 @@ export default function ApplyForm() {
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [resumeData, setResumeData] = useState(null);
+  const [showScreening, setShowScreening] = useState(false);
+const [submittedApplication, setSubmittedApplication] = useState(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -137,55 +141,63 @@ export default function ApplyForm() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.skillset || 
-        !formData.state || !formData.city || !formData.pincode || !formData.address ||
-        !formData.tenth || !formData.tenthSchool || !formData.diploma || 
-        !formData.diplomaCollege || !formData.diplomaStream || !formData.graduation || 
-        !formData.graduationCollege || !formData.graduationStream ||
-        !formData.project) {
-      alert("Please fill all required fields marked with *!");
-      return;
-    }
+  if (!formData.name || !formData.email || !formData.phone || !formData.skillset || 
+      !formData.state || !formData.city || !formData.pincode || !formData.address ||
+      !formData.tenth || !formData.tenthSchool || !formData.diploma || 
+      !formData.diplomaCollege || !formData.diplomaStream || !formData.graduation || 
+      !formData.graduationCollege || !formData.graduationStream ||
+      !formData.project) {
+    alert("Please fill all required fields marked with *!");
+    return;
+  }
 
-    if (!resumeData && !uploadedFile) {
-      alert("Please upload your resume!");
-      return;
-    }
+  if (!resumeData && !uploadedFile) {
+    alert("Please upload your resume!");
+    return;
+  }
 
-    const applicationData = {
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      skillset: formData.skillset,
-      resumeUrl: formData.resumeUrl || "Uploaded via PDF",
-      resumePDF: resumeData, // Include PDF data
-      jobId: id,
-      jobTitle: job?.title || "NA",
-      location: `${formData.city}, ${formData.state}`,
-      pincode: formData.pincode,
-      address: formData.address,
-      project: formData.project,
-      academic: {
-        tenth: { score: formData.tenth, school: formData.tenthSchool },
-        diploma: { score: formData.diploma, college: formData.diplomaCollege, stream: formData.diplomaStream },
-        graduation: { score: formData.graduation, college: formData.graduationCollege, stream: formData.graduationStream },
-        postGraduation: { score: formData.postGraduation, college: formData.postGraduationCollege, stream: formData.postGraduationStream },
-      },
-    };
-
-    setLoading(true);
-    try {
-      await axios.post("http://localhost:5000/api/applications", applicationData);
-      alert("Application submitted successfully! We'll review your application and get back to you soon.");
-      navigate("/");
-    } catch (err) {
-      console.error("Error submitting application:", err);
-      alert("Failed to submit application. Please try again.");
-    }
-    setLoading(false);
+  const applicationData = {
+    name: formData.name,
+    email: formData.email,
+    phone: formData.phone,
+    skillset: formData.skillset,
+    resumeUrl: formData.resumeUrl || "Uploaded via PDF",
+    resumePDF: resumeData,
+    jobId: id,
+    jobTitle: job?.title || "NA",
+    location: `${formData.city}, ${formData.state}`,
+    pincode: formData.pincode,
+    address: formData.address,
+    project: formData.project,
+    academic: {
+      tenth: { score: formData.tenth, school: formData.tenthSchool },
+      diploma: { score: formData.diploma, college: formData.diplomaCollege, stream: formData.diplomaStream },
+      graduation: { score: formData.graduation, college: formData.graduationCollege, stream: formData.graduationStream },
+      postGraduation: { score: formData.postGraduation, college: formData.postGraduationCollege, stream: formData.postGraduationStream },
+    },
   };
+
+  setLoading(true);
+  try {
+    const response = await axios.post("http://localhost:5000/api/applications", applicationData);
+    
+    // ✅ NEW: Instead of navigating, show screening questions
+    setSubmittedApplication(response.data.application);
+    setShowScreening(true);
+  } catch (err) {
+    console.error("Error submitting application:", err);
+    alert("Failed to submit application. Please try again.");
+  }
+  setLoading(false);
+};
+
+const handleScreeningComplete = () => {
+  setShowScreening(false);
+  alert("✅ Your application and screening questions have been submitted successfully!\n\nWe'll review your application and get back to you soon.");
+  navigate("/");
+};
 
   if (!job) {
     return (
@@ -260,26 +272,26 @@ export default function ApplyForm() {
               <div style={styles.divider}></div>
 
               <div style={styles.infoSection}>
-                <h4 style={styles.sidebarTitle}>What We Offer</h4>
-                <div style={styles.benefitsList}>
-                  <div style={styles.benefitItem}>
-                    <span style={styles.benefitIcon}>💰</span>
-                    <span style={styles.benefitText}>Competitive Salary</span>
-                  </div>
-                  <div style={styles.benefitItem}>
-                    <span style={styles.benefitIcon}>🏥</span>
-                    <span style={styles.benefitText}>Health Insurance</span>
-                  </div>
-                  <div style={styles.benefitItem}>
-                    <span style={styles.benefitIcon}>📚</span>
-                    <span style={styles.benefitText}>Learning & Development</span>
-                  </div>
-                  <div style={styles.benefitItem}>
-                    <span style={styles.benefitIcon}>🎯</span>
-                    <span style={styles.benefitText}>Career Growth</span>
-                  </div>
-                </div>
-              </div>
+  <h4 style={styles.sidebarTitle}>What We Offer</h4>
+  <div style={styles.benefitsList}>
+    <div style={styles.benefitItem}>
+      <span style={styles.benefitIcon}><DollarSign /></span>
+      <span style={styles.benefitText}>Competitive Salary</span>
+    </div>
+    <div style={styles.benefitItem}>
+      <span style={styles.benefitIcon}><Heart /></span>
+      <span style={styles.benefitText}>Health Insurance</span>
+    </div>
+    <div style={styles.benefitItem}>
+      <span style={styles.benefitIcon}><BookOpen /></span>
+      <span style={styles.benefitText}>Learning & Development</span>
+    </div>
+    <div style={styles.benefitItem}>
+      <span style={styles.benefitIcon}><TrendingUp /></span>
+      <span style={styles.benefitText}>Career Growth</span>
+    </div>
+  </div>
+</div>
 
               <div style={styles.helpBox}>
                 <h5 style={styles.helpTitle}>Need Help?</h5>
@@ -500,6 +512,13 @@ export default function ApplyForm() {
                 {loading ? "Submitting..." : "Submit Application"}
               </button>
             </form>
+            {/* Screening Questions Modal */}
+{showScreening && submittedApplication && (
+  <ScreeningQuestions 
+    applicationData={submittedApplication}
+    onComplete={handleScreeningComplete}
+  />
+)}
           </div>
         </div>
       </div>
@@ -585,4 +604,20 @@ const styles = {
   
   loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0f0f10", color: "white" },
   loader: { width: "50px", height: "50px", border: "5px solid #4a4a4b", borderTop: "5px solid #ff7c26", borderRadius: "50%", animation: "spin 1s linear infinite" },
+
+  icon: {
+  marginRight: '8px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  color: '#666', // adjust to your color scheme
+},
+
+benefitIcon: {
+  marginRight: '8px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  flexShrink: 0,
+  color: '#666', // adjust to your color scheme
+},
 };

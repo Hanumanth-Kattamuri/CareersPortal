@@ -1,4 +1,5 @@
 import React from "react";
+import { MapPin, Briefcase, DollarSign, Building2 } from 'lucide-react';
 
 const GAMYAM_COLORS = {
   darkBg: '#0a0a0a',
@@ -27,20 +28,20 @@ export default function JobCard({ job, onClick }) {
 
       <div style={styles.infoGrid}>
         <div style={styles.infoItem}>
-          <span style={styles.icon}>📍</span>
+          <span style={styles.icon}><MapPin size={16} /></span>
           <span style={styles.infoText}>{job.location}</span>
         </div>
         <div style={styles.infoItem}>
-          <span style={styles.icon}>💼</span>
+          <span style={styles.icon}><Briefcase size={16} /></span>
           <span style={styles.infoText}>{job.experience}</span>
         </div>
         <div style={styles.infoItem}>
-          <span style={styles.icon}>💰</span>
+          <span style={styles.icon}><DollarSign size={16} /></span>
           <span style={styles.infoText}>{job.ctc}</span>
         </div>
         {job.department && job.department !== "NA" && (
           <div style={styles.infoItem}>
-            <span style={styles.icon}>🏢</span>
+            <span style={styles.icon}><Building2 size={16} /></span>
             <span style={styles.infoText}>{job.department}</span>
           </div>
         )}
@@ -131,7 +132,8 @@ const styles = {
     gap: "8px",
   },
   icon: {
-    fontSize: "16px",
+    display: "inline-flex",
+    alignItems: "center",
   },
   infoText: {
     fontSize: "13px",

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Search, MapPin, BarChart2, DollarSign, Calendar } from 'lucide-react';
 
 const GAMYAM_COLORS = {
   darkBg: '#0f0f10',
@@ -88,7 +89,7 @@ export default function JobList() {
       {/* Hero Section */}
       <div style={styles.hero}>
         <div style={styles.heroContent}>
-<h2 style={{ color: '#ff7c26' }}>Career</h2>
+          <h2 style={{ color: '#ff7c26' }}>Career</h2>
           <h1 style={styles.heroTitle}>Join Our Team</h1>
           <p style={styles.heroSubtitle}>
             Discover a culture that values innovation, collaboration, and personal growth.
@@ -99,7 +100,7 @@ export default function JobList() {
       {/* Search & Filter Section */}
       <div style={styles.searchSection}>
         <div style={styles.searchContainer}>
-          <span style={styles.searchIcon}>🔍</span>
+          <span style={styles.searchIcon}><Search size={18} /></span>
           <input
             type="text"
             placeholder="Search positions by title or keywords..."
@@ -141,21 +142,21 @@ export default function JobList() {
 
                 <div style={styles.infoGrid}>
                   <div style={styles.infoItem}>
-                    <span style={styles.icon}>📍</span>
+                    <span style={styles.icon}><MapPin size={16} /></span>
                     <span style={styles.infoText}>{job.location || "Not specified"}</span>
                   </div>
                   <div style={styles.infoItem}>
-                    <span style={styles.icon}>📊</span>
+                    <span style={styles.icon}><BarChart2 size={16} /></span>
                     <span style={styles.infoText}>{job.experience || "Not specified"}</span>
                   </div>
                   {job.salary && (
                     <div style={styles.infoItem}>
-                      <span style={styles.icon}>💰</span>
+                      <span style={styles.icon}><DollarSign size={16} /></span>
                       <span style={styles.infoText}>{job.salary}</span>
                     </div>
                   )}
                   <div style={styles.infoItem}>
-                    <span style={styles.icon}>📅</span>
+                    <span style={styles.icon}><Calendar size={16} /></span>
                     <span style={styles.infoText}>Posted {new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                   </div>
                 </div>
@@ -242,7 +243,8 @@ const styles = {
     position: "absolute",
     left: "16px",
     top: "12px",
-    fontSize: "18px",
+    display: "inline-flex",
+    alignItems: "center",
     color: GAMYAM_COLORS.textMuted,
   },
   searchInput: {
@@ -342,7 +344,8 @@ const styles = {
     gap: "8px",
   },
   icon: {
-    fontSize: "16px",
+    display: "inline-flex",
+    alignItems: "center",
   },
   infoText: {
     fontSize: "13px",

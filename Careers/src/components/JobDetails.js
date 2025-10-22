@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { MapPin, Briefcase, DollarSign, Clock } from 'lucide-react';
 
 const GAMYAM_COLORS = {
   darkBg: '#0f0f10',
@@ -78,19 +79,19 @@ export default function JobDetails() {
             <p style={styles.jobRole}>{job.role}</p>
             
             <div style={styles.metaInfo}>
-              <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>📍</span> {job.location}
-              </span>
-              <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>💼</span> {job.experience}
-              </span>
-              <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>💰</span> {job.ctc}
-              </span>
-              <span style={styles.metaItem}>
-                <span style={styles.metaIcon}>⏰</span> {job.jobType}
-              </span>
-            </div>
+  <span style={styles.metaItem}>
+    <MapPin size={16} style={styles.metaIcon} /> {job.location}
+  </span>
+  <span style={styles.metaItem}>
+    <Briefcase size={16} style={styles.metaIcon} /> {job.experience}
+  </span>
+  <span style={styles.metaItem}>
+    <DollarSign size={16} style={styles.metaIcon} /> {job.ctc}
+  </span>
+  <span style={styles.metaItem}>
+    <Clock size={16} style={styles.metaIcon} /> {job.jobType}
+  </span>
+</div>
           </div>
           
           <button style={styles.applyBtn} onClick={() => navigate(`/apply/${id}`)}>
@@ -191,4 +192,10 @@ const styles = {
   loadingContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: GAMYAM_COLORS.darkBg },
   loader: { width: "50px", height: "50px", border: `5px solid ${GAMYAM_COLORS.border}`, borderTop: `5px solid ${GAMYAM_COLORS.orange}`, borderRadius: "50%", animation: "spin 1s linear infinite" },
   errorContainer: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: GAMYAM_COLORS.darkBg, textAlign: "center", padding: "20px" },
+  metaIcon: {
+  marginRight: '6px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  color: '#666', // or whatever color fits your design
+}
 };
