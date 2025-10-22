@@ -1187,16 +1187,18 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
       interviewPlace,
       isRejected,
       rejectionRound,
-      syncToSheets, // Only sync if true (HR saves)
-      isRecruiterFeedback, // NEW: Track if feedback is from recruiter
-      recruiterCompleted // NEW: Mark as completed by recruiter
+      syncToSheets,
+      recruiterCompleted // ✅ NEW: Receive from frontend
     } = req.body;
 
     console.log('💾 Saving recruiter actions for:', applicationId, 'Round:', roundStatus);
     console.log('📊 Sync to Sheets:', syncToSheets ? 'YES (HR)' : 'NO (Recruiter)');
     console.log('✅ Recruiter Completed:', recruiterCompleted || false);
+    
 
-    // Map round names to schema fields
+console.log('🔍 DEBUG - Received recruiterCompleted:', recruiterCompleted); // ✅ ADD THIS
+console.log('🔍 DEBUG - Round Status:', roundStatus); // ✅ ADD THIS
+
     const roundMap = {
       'Round 1': 'round1',
       'Round 2': 'round2',
@@ -1209,10 +1211,8 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
     let recruiterAction = await RecruiterAction.findOne({ applicationId });
     
     if (recruiterAction) {
-      // Update current round
       recruiterAction.currentRound = roundStatus;
       
-      // Update specific round details
       if (roundField) {
         if (feedback && feedback.trim()) {
           recruiterAction[roundField].feedback = feedback.trim();
@@ -1226,9 +1226,11 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
         if (scheduledBy) recruiterAction[roundField].scheduledBy = scheduledBy;
         if (interviewPlace) recruiterAction[roundField].interviewPlace = interviewPlace;
         
-        // NEW: Mark as completed by recruiter
+        // ✅ NEW: Mark as completed by recruiter
         if (recruiterCompleted !== undefined) {
           recruiterAction[roundField].recruiterCompleted = recruiterCompleted;
+                    console.log('✅ DEBUG - Set recruiterCompleted to:', recruiterCompleted); // ✅ ADD THIS
+
         }
       }
       
@@ -1238,7 +1240,6 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
       await recruiterAction.save();
       console.log('✅ Updated recruiter action');
     } else {
-      // Create new with initial round data
       const newAction = {
         applicationId,
         currentRound: roundStatus,
@@ -1256,7 +1257,7 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
         panelNumber: panelNumber || '',
         scheduledBy: scheduledBy || '',
         interviewPlace: interviewPlace || '',
-        recruiterCompleted: recruiterCompleted || false // NEW
+        recruiterCompleted: recruiterCompleted || false // ✅ NEW
       };
       
       recruiterAction = new RecruiterAction(newAction);
@@ -1264,7 +1265,7 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
       console.log('✅ Created new recruiter action');
     }
 
-    // CONDITIONAL SYNC: Only sync to Google Sheets if HR is saving
+    // Only sync to Google Sheets if HR is saving
     if (syncToSheets === true) {
       console.log('📊 Syncing to Google Sheets (HR action)...');
       const application = await Application.findById(applicationId);
@@ -1284,7 +1285,7 @@ app.post('/api/recruiter-actions/:applicationId', async (req, res) => {
         });
       }
     } else {
-      console.log('ℹ️ Skipping Google Sheets sync (Recruiter action - saved to MongoDB only)');
+      console.log('ℹ️ Skipping Google Sheets sync (Recruiter feedback only)');
     }
 
     res.json({ message: 'Recruiter actions saved successfully', recruiterAction });

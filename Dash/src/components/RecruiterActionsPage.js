@@ -118,6 +118,8 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
     setSaving(true);
     try {
       const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
+            console.log('🔍 DEBUG - Sending recruiterCompleted: true'); // ✅ ADD THIS
+
       
       await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
         roundStatus,
@@ -132,17 +134,18 @@ function RecruiterActionsPage({ applicant, onBack, user }) {
         interviewPlace: existingAction.data[roundMap[roundStatus]]?.interviewPlace || interviewPlace,
         isRejected: false,
         rejectionRound: '',
-        syncToSheets: false,
-        recruiterCompleted: true
+        syncToSheets: false, // Don't sync to sheets
+        recruiterCompleted: true // ✅ NEW: Mark as completed
       });
       
       alert("Feedback saved and marked as completed!");
       setFeedbackSubmitted(true);
       await loadRecruiterActions();
 
+      // ✅ NEW: Go back to dashboard after saving
       if (onBack) {
-      onBack();
-    }
+        onBack();
+      }
       
     } catch (err) {
       console.error("Error saving feedback:", err);

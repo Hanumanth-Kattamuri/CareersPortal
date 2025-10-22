@@ -47,7 +47,14 @@ function ApplicationsTable({ applications, onRefresh, onNavigateToRecruiter }) {
   // ✅ NEW: Helper function to check if recruiter completed their task
   const isRecruiterCompleted = (appId) => {
     const action = recruiterActions[appId];
-    if (!action) return false;
+    
+    console.log('🔍 DEBUG - Checking completion for app:', appId); // ✅ ADD
+    console.log('🔍 DEBUG - Action data:', action); // ✅ ADD
+    
+    if (!action) {
+      console.log('❌ DEBUG - No action found'); // ✅ ADD
+      return false;
+    }
     
     const roundMap = {
       'Round 1': 'round1',
@@ -59,7 +66,15 @@ function ApplicationsTable({ applications, onRefresh, onNavigateToRecruiter }) {
     const currentRoundField = roundMap[action.currentRound];
     const currentRoundData = action[currentRoundField];
     
-    return currentRoundData?.recruiterCompleted === true;
+    console.log('🔍 DEBUG - Current Round:', action.currentRound); // ✅ ADD
+    console.log('🔍 DEBUG - Round Field:', currentRoundField); // ✅ ADD
+    console.log('🔍 DEBUG - Round Data:', currentRoundData); // ✅ ADD
+    console.log('🔍 DEBUG - recruiterCompleted value:', currentRoundData?.recruiterCompleted); // ✅ ADD
+    
+    const isCompleted = currentRoundData?.recruiterCompleted === true;
+    console.log('🔍 DEBUG - Final result:', isCompleted); // ✅ ADD
+    
+    return isCompleted;
   };
 
   const handleViewResume = async (appId, appName) => {
