@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Mail, Phone, Send, X, ExternalLink, Save, Edit2, Calendar, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Phone, Save, Calendar, Clock, MapPin, Users, CheckCircle } from "lucide-react";
 import axios from "axios";
 
 const GAMYAM_COLORS = {
@@ -13,46 +13,21 @@ const GAMYAM_COLORS = {
   border: '#4a4a4b',
 };
 
-const GOOGLE_SHEET_ID = '1wgNsZ5mtOCaj6vnvD84ECMnx-Hw3cFzmlUxwiQTUQzo';
-
 function RecruiterActionsPage({ applicant, onBack, user }) {
-  console.log('🔍 USER PROP:', user);
-  console.log('🔍 USER ROLE:', user?.role);
-  console.log('Is HR?', user?.role === 'hr');
-  console.log('Is Recruiter?', user?.role === 'recruiter');
-  console.log('===============================');
-
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showPromoteModal, setShowPromoteModal] = useState(false);
-  const [emailData, setEmailData] = useState({
-    subject: "",
-    body: ""
-  });
-  const [sending, setSending] = useState(false);
-  
   const [roundStatus, setRoundStatus] = useState("Round 1");
   const [feedback, setFeedback] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
-  const [interviewerName, setInterviewerName] = useState("");
-  const [interviewerEmail, setInterviewerEmail] = useState("");
-  const [interviewerPhone, setInterviewerPhone] = useState("");
   const [panelNumber, setPanelNumber] = useState("");
-  const [scheduledBy, setScheduledBy] = useState("");
   const [interviewPlace, setInterviewPlace] = useState("");
+  const [interviewerName, setInterviewerName] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
   const [allFeedback, setAllFeedback] = useState("");
-  const [isRejected, setIsRejected] = useState(false);
-  const [recruiters, setRecruiters] = useState([]);
-  const [selectedRecruiters, setSelectedRecruiters] = useState([]);
-  const [showRecruiterDropdown, setShowRecruiterDropdown] = useState(false);
   const [screeningAnswers, setScreeningAnswers] = useState(null);
-const [loadingScreening, setLoadingScreening] = useState(false);
+  const [loadingScreening, setLoadingScreening] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   
-  // Round mapping
   const roundMap = {
     'Round 1': 'round1',
     'Round 2': 'round2',
@@ -65,42 +40,16 @@ const [loadingScreening, setLoadingScreening] = useState(false);
   }, [applicant._id]);
 
   useEffect(() => {
-    fetchRecruiters();
-  }, []);
-
-  useEffect(() => {
-  if (roundStatus && !loading) {
-    loadRecruiterActions();
-  }
-}, [roundStatus]);
-
-// ✅ NEW: Load screening answers on component mount
-useEffect(() => {
-  if (applicant && applicant._id) {
-    loadScreeningAnswers();
-  }
-}, [applicant._id]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showRecruiterDropdown && !event.target.closest('.recruiter-dropdown-container')) {
-        setShowRecruiterDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showRecruiterDropdown]);
-
-  const fetchRecruiters = async () => {
-    try {
-      const response = await axios.get('http://localhost:5000/api/recruiters');
-      setRecruiters(response.data);
-    } catch (err) {
-      console.error('Error fetching recruiters:', err);
+    if (roundStatus && !loading) {
+      loadRecruiterActions();
     }
-  };
+  }, [roundStatus]);
+
+  useEffect(() => {
+    if (applicant && applicant._id) {
+      loadScreeningAnswers();
+    }
+  }, [applicant._id]);
 
   const loadRecruiterActions = async () => {
     try {
@@ -109,36 +58,20 @@ useEffect(() => {
       const data = response.data;
       
       setRoundStatus(data.currentRound || "Round 1");
-      setIsRejected(data.isRejected || false);
       
       const currentRoundField = roundMap[data.currentRound || "Round 1"];
       const currentRoundData = data[currentRoundField] || {};
       
-     // Load current round's data
       setFeedback(currentRoundData.feedback || "");
       setScheduledDate(currentRoundData.scheduledDate || "");
       setScheduledTime(currentRoundData.scheduledTime || "");
-      setInterviewerName(currentRoundData.interviewerName || "");
-      setInterviewerEmail(currentRoundData.interviewerEmail || "");
-      setInterviewerPhone(currentRoundData.interviewerPhone || "");
       setPanelNumber(currentRoundData.panelNumber || "");
-      setScheduledBy(currentRoundData.scheduledBy || "");
       setInterviewPlace(currentRoundData.interviewPlace || "");
+      setInterviewerName(currentRoundData.interviewerName || "");
       
-      // Parse selected recruiters from saved data
-      if (currentRoundData.interviewerEmail) {
-        const emails = currentRoundData.interviewerEmail.split(',').map(e => e.trim());
-        const selectedRecs = [];
-        emails.forEach(email => {
-          const rec = recruiters.find(r => r.email === email);
-          if (rec) selectedRecs.push(rec);
-        });
-        setSelectedRecruiters(selectedRecs);
-      } else {
-        setSelectedRecruiters([]);
-      }
+      // Check if feedback already submitted
+      setFeedbackSubmitted(!!currentRoundData.feedback);
       
-      // Build all feedback display
       let allFeedbackText = "";
       ['Round 1', 'Round 2', 'Round 3', 'Final Round'].forEach(round => {
         const roundField = roundMap[round];
@@ -149,17 +82,9 @@ useEffect(() => {
       });
       setAllFeedback(allFeedbackText.trim());
       
-      // Set editing mode based on whether schedule exists
-      if (currentRoundData.scheduledDate || currentRoundData.interviewerName) {
-        setIsEditing(false);
-      } else {
-        setIsEditing(true);
-      }
-      
-      console.log('✅ Loaded recruiter actions for round:', data.currentRound);
     } catch (err) {
       if (err.response && err.response.status === 404) {
-        setIsEditing(true);
+        console.log('No data found');
       } else {
         console.error('Error loading recruiter actions:', err);
       }
@@ -169,121 +94,19 @@ useEffect(() => {
   };
 
   const loadScreeningAnswers = async () => {
-  try {
-    setLoadingScreening(true);
-    console.log('🔍 Loading screening answers for:', applicant._id); // ✅ DEBUG
-    
-    const response = await axios.get(`http://localhost:5000/api/screening-answers/${applicant._id}`);
-    
-    console.log('✅ Screening answers loaded:', response.data); // ✅ DEBUG
-    setScreeningAnswers(response.data);
-  } catch (err) {
-    if (err.response?.status === 404) {
-      console.log('ℹ️ No screening answers found (404)'); // ✅ DEBUG
-      setScreeningAnswers(null);
-    } else {
-      console.error('❌ Error loading screening answers:', err);
-    }
-  } finally {
-    setLoadingScreening(false);
-  }
-};
-
-  const handleSendEmail = async () => {
-    if (!emailData.subject || !emailData.body) {
-      alert("Please fill in both subject and email body");
-      return;
-    }
-
-    setSending(true);
     try {
-      await axios.post("http://localhost:5000/api/send-custom-email", {
-        to: applicant.email,
-        subject: emailData.subject,
-        body: emailData.body,
-        applicantName: applicant.name
-      });
-      alert("Email sent successfully!");
-      setShowEmailModal(false);
-      setEmailData({ subject: "", body: "" });
+      setLoadingScreening(true);
+      const response = await axios.get(`http://localhost:5000/api/screening-answers/${applicant._id}`);
+      setScreeningAnswers(response.data);
     } catch (err) {
-      console.error("Error sending email:", err);
-      alert("Failed to send email");
+      if (err.response?.status === 404) {
+        setScreeningAnswers(null);
+      } else {
+        console.error('Error loading screening answers:', err);
+      }
+    } finally {
+      setLoadingScreening(false);
     }
-    setSending(false);
-  };
-
-  const handleSendInvitation = async () => {
-    if (!scheduledDate || !scheduledTime || !interviewPlace || !selectedRecruiters.length || !panelNumber) {
-      alert("Please fill in all interview details and select at least one interviewer");
-      return;
-    }
-
-    setSending(true);
-    try {
-      // Send invitation to applicant AND all selected interviewers
-      await axios.post("http://localhost:5000/api/send-interview-invitation", {
-        applicantEmail: applicant.email,
-        applicantName: applicant.name,
-        interviewers: selectedRecruiters.map(r => ({
-          email: r.email,
-          name: r.name,
-          phone: r.phone
-        })),
-        jobTitle: applicant.jobTitle,
-        scheduledDate: scheduledDate,
-        scheduledTime: scheduledTime,
-        interviewPlace: interviewPlace,
-        roundStatus: roundStatus,
-        panelNumber: panelNumber
-      });
-      
-      alert(`Interview invitation sent to applicant and ${selectedRecruiters.length} interviewer(s)!`);
-      setShowInviteModal(false);
-    } catch (err) {
-      console.error("Error sending invitation:", err);
-      alert("Failed to send invitation");
-    }
-    setSending(false);
-  };
-
-  const handleSaveScheduleDetails = async () => {
-    if (!scheduledDate || !scheduledTime || !selectedRecruiters.length || !scheduledBy || !interviewPlace || !panelNumber) {
-      alert("Please fill in all schedule details and select at least one interviewer");
-      return;
-    }
-
-    // Build comma-separated strings
-    const interviewerNames = selectedRecruiters.map(r => r.name).join(', ');
-    const interviewerEmails = selectedRecruiters.map(r => r.email).join(', ');
-    const interviewerPhones = selectedRecruiters.map(r => r.phone || '').join(', ');
-
-    setSaving(true);
-    try {
-      await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
-        roundStatus,
-        feedback: '',
-        scheduledDate,
-        scheduledTime,
-        interviewerName: interviewerNames,
-        interviewerEmail: interviewerEmails,
-        interviewerPhone: interviewerPhones,
-        panelNumber,
-        scheduledBy,
-        interviewPlace,
-        isRejected: false,
-        rejectionRound: ''
-      });
-      
-      alert("Schedule details saved successfully!");
-      setIsEditing(false);
-      await loadRecruiterActions();
-      
-    } catch (err) {
-      console.error("Error saving schedule details:", err);
-      alert("Failed to save schedule details");
-    }
-    setSaving(false);
   };
 
   const handleSaveFeedback = async () => {
@@ -296,134 +119,36 @@ useEffect(() => {
     try {
       const existingAction = await axios.get(`http://localhost:5000/api/recruiter-actions/${applicant._id}`);
       
-      const isRecruiter = user.role === 'recruiter';
-      const isHR = user.role === 'hr';
-      
       await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
         roundStatus,
         feedback: feedback.trim(),
         scheduledDate: existingAction.data[roundMap[roundStatus]]?.scheduledDate || scheduledDate,
         scheduledTime: existingAction.data[roundMap[roundStatus]]?.scheduledTime || scheduledTime,
         interviewerName: existingAction.data[roundMap[roundStatus]]?.interviewerName || interviewerName,
-        interviewerEmail: existingAction.data[roundMap[roundStatus]]?.interviewerEmail || interviewerEmail,
-        interviewerPhone: existingAction.data[roundMap[roundStatus]]?.interviewerPhone || interviewerPhone,
+        interviewerEmail: existingAction.data[roundMap[roundStatus]]?.interviewerEmail || '',
+        interviewerPhone: existingAction.data[roundMap[roundStatus]]?.interviewerPhone || '',
         panelNumber: existingAction.data[roundMap[roundStatus]]?.panelNumber || panelNumber,
-        scheduledBy: existingAction.data[roundMap[roundStatus]]?.scheduledBy || scheduledBy,
+        scheduledBy: existingAction.data[roundMap[roundStatus]]?.scheduledBy || '',
         interviewPlace: existingAction.data[roundMap[roundStatus]]?.interviewPlace || interviewPlace,
-        isRejected,
-        rejectionRound: isRejected ? roundStatus : '',
-        syncToSheets: isHR,
-        recruiterCompleted: isRecruiter
+        isRejected: false,
+        rejectionRound: '',
+        syncToSheets: false,
+        recruiterCompleted: true
       });
       
-      const successMessage = isRecruiter 
-        ? "Feedback saved and marked as completed!" 
-        : "Feedback saved and synced to Google Sheets!";
-      
-      alert(successMessage);
+      alert("Feedback saved and marked as completed!");
+      setFeedbackSubmitted(true);
       await loadRecruiterActions();
 
+      if (onBack) {
+      onBack();
+    }
       
     } catch (err) {
       console.error("Error saving feedback:", err);
       alert("Failed to save feedback");
     }
     setSaving(false);
-  };
-
-  const handleRejectCandidate = async () => {
-    if (!window.confirm(`Are you sure you want to reject ${applicant.name} in ${roundStatus}?`)) {
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await axios.post(`http://localhost:5000/api/recruiter-actions/${applicant._id}`, {
-        roundStatus,
-        feedback: feedback.trim(),
-        scheduledDate,
-        scheduledTime,
-        interviewerName,
-        interviewerEmail,
-        interviewerPhone,
-        panelNumber,
-        scheduledBy,
-        interviewPlace,
-        isRejected: true,
-        rejectionRound: roundStatus
-      });
-
-      await axios.post(`http://localhost:5000/api/applications/${applicant._id}/reject`);
-      
-      alert(`Candidate rejected in ${roundStatus}. Rejection email sent.`);
-      setIsRejected(true);
-      loadRecruiterActions();
-    } catch (err) {
-      console.error("Error rejecting candidate:", err);
-      alert("Failed to reject candidate");
-    }
-    setSaving(false);
-  };
-
-  const handlePromoteToNextRound = async () => {
-    const roundOrder = ["Round 1", "Round 2", "Round 3", "Final Round"];
-    const currentIndex = roundOrder.indexOf(roundStatus);
-    
-    if (currentIndex === -1 || currentIndex >= roundOrder.length - 1) {
-      alert("Candidate is already in the final round");
-      return;
-    }
-
-    setShowPromoteModal(true);
-  };
-
-  const confirmPromoteToNextRound = async () => {
-    const roundOrder = ["Round 1", "Round 2", "Round 3", "Final Round"];
-    const currentIndex = roundOrder.indexOf(roundStatus);
-    const nextRound = roundOrder[currentIndex + 1];
-
-    setSending(true);
-    try {
-      await axios.post(`http://localhost:5000/api/applications/${applicant._id}/promote-round`, {
-        nextRound: nextRound,
-        message: `Congratulations! You have successfully cleared ${roundStatus} and have been selected for ${nextRound}. Our HR team will contact you shortly with the interview schedule.`
-      });
-
-      alert(`Candidate promoted to ${nextRound} successfully! Email sent.`);
-      setShowPromoteModal(false);
-      setRoundStatus(nextRound);
-      loadRecruiterActions();
-    } catch (err) {
-      console.error("Error promoting candidate:", err);
-      alert("Failed to promote candidate");
-    }
-    setSending(false);
-  };
-
-  const handleSendSelectionEmail = async () => {
-    if (!window.confirm(`Send selection email to ${applicant.name}?`)) {
-      return;
-    }
-
-    setSending(true);
-    try {
-      await axios.post('http://localhost:5000/api/send-selection-email', {
-        to: applicant.email,
-        applicantName: applicant.name,
-        jobTitle: applicant.jobTitle,
-        applicationId: applicant._id
-      });
-
-      alert('Selection email sent successfully! Status updated to Selected.');
-      
-      if (onBack) {
-        onBack();
-      }
-    } catch (err) {
-      console.error('Error sending selection email:', err);
-      alert('Failed to send selection email');
-    }
-    setSending(false);
   };
 
   const handleViewResume = async () => {
@@ -444,16 +169,8 @@ useEffect(() => {
     }
   };
 
-  const handleViewSpreadsheet = () => {
-    if (GOOGLE_SHEET_ID === 'YOUR_SPREADSHEET_ID_HERE') {
-      alert('Please configure your Google Spreadsheet ID in the code');
-      return;
-    }
-    window.open(`https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}`, '_blank');
-  };
-
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "Not scheduled";
     const date = new Date(dateString);
     return date.toLocaleDateString('en-IN', { 
       year: 'numeric', 
@@ -470,43 +187,6 @@ useEffect(() => {
     );
   }
 
-  if (isRejected) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.container}>
-          <div style={styles.header}>
-            <button style={styles.backBtn} onClick={onBack}>
-              <ArrowLeft size={20} /> Back
-            </button>
-            <h1 style={styles.title}>Recruiter Actions Page</h1>
-          </div>
-
-          <div style={styles.rejectedCard}>
-            <XCircle size={64} style={{ color: '#ff2727', marginBottom: '20px' }} />
-            <h2 style={{ color: '#ff2727', fontSize: '24px', marginBottom: '10px' }}>Candidate Rejected</h2>
-            <p style={{ color: GAMYAM_COLORS.textMuted, fontSize: '16px' }}>
-              {applicant.name} was rejected in {roundStatus}.
-            </p>
-            <p style={{ color: GAMYAM_COLORS.textDim, fontSize: '14px', marginTop: '20px' }}>
-              No further rounds available.
-            </p>
-            
-            <div style={{ marginTop: '30px' }}>
-              <h3 style={{ color: GAMYAM_COLORS.orange, marginBottom: '12px' }}>All Feedback:</h3>
-              <div style={styles.feedbackDisplay}>
-                {allFeedback.split('\n').map((line, idx) => (
-                  <p key={idx} style={{ margin: '8px 0', color: GAMYAM_COLORS.textMuted }}>
-                    {line}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -514,19 +194,13 @@ useEffect(() => {
           <button style={styles.backBtn} onClick={onBack}>
             <ArrowLeft size={20} /> Back
           </button>
-          <h1 style={styles.title}>Recruiter Actions Page</h1>
-          {/* View Spreadsheet - ONLY SHOW TO HR */}
-          {user && user.role === 'hr' && (
-            <button style={styles.spreadsheetBtn} onClick={handleViewSpreadsheet}>
-              <ExternalLink size={18} /> View Spreadsheet
-            </button>
-          )}
+          <h1 style={styles.title}>Interview Feedback - {applicant.name}</h1>
         </div>
 
         <div style={styles.mainGrid}>
           {/* Left Section - Applicant Profile */}
           <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Applicant Profile</h2>
+            <h2 style={styles.cardTitle}>Candidate Profile</h2>
             <div style={styles.profileSection}>
               <div style={styles.avatarCircle}>
                 {applicant.name.charAt(0).toUpperCase()}
@@ -561,44 +235,53 @@ useEffect(() => {
 
           {/* Middle Section */}
           <div style={styles.middleSection}>
-            {/* Communication - ONLY SHOW TO HR */}
-            {user && user.role === 'hr' && (
-              <div style={styles.card}>
-                <h2 style={styles.cardTitle}>Communication</h2>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button 
-                    style={styles.actionBtn}
-                    onClick={() => setShowEmailModal(true)}
-                  >
-                    <Mail size={18} /> Send Email
-                  </button>
-                  <button 
-                    style={{...styles.actionBtn, background: '#4CAF50'}}
-                    onClick={() => setShowInviteModal(true)}
-                  >
-                    <Calendar size={18} /> Send Invitation
-                  </button>
+            {/* Interview Schedule Info */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>📅 Interview Schedule</h2>
+              
+              <div style={styles.scheduleGrid}>
+                <div style={styles.scheduleItem}>
+                  <Calendar size={20} style={{ color: GAMYAM_COLORS.orange }} />
+                  <div>
+                    <p style={styles.scheduleLabel}>Date</p>
+                    <p style={styles.scheduleValue}>{formatDate(scheduledDate)}</p>
+                  </div>
+                </div>
+
+                <div style={styles.scheduleItem}>
+                  <Clock size={20} style={{ color: GAMYAM_COLORS.orange }} />
+                  <div>
+                    <p style={styles.scheduleLabel}>Time</p>
+                    <p style={styles.scheduleValue}>{scheduledTime || 'Not set'}</p>
+                  </div>
+                </div>
+
+                <div style={styles.scheduleItem}>
+                  <MapPin size={20} style={{ color: GAMYAM_COLORS.orange }} />
+                  <div>
+                    <p style={styles.scheduleLabel}>Venue</p>
+                    <p style={styles.scheduleValue}>{interviewPlace || 'Not set'}</p>
+                  </div>
+                </div>
+
+                <div style={styles.scheduleItem}>
+                  <Users size={20} style={{ color: GAMYAM_COLORS.orange }} />
+                  <div>
+                    <p style={styles.scheduleLabel}>Panel Number</p>
+                    <p style={styles.scheduleValue}>{panelNumber || 'Not assigned'}</p>
+                  </div>
                 </div>
               </div>
-            )}
 
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Interview Round Status</h2>
-              <select 
-                value={roundStatus} 
-                onChange={(e) => setRoundStatus(e.target.value)}
-                style={styles.select}
-                disabled={user.role === 'recruiter' || !isEditing}
-              >
-                <option value="Round 1">Round 1</option>
-                <option value="Round 2">Round 2</option>
-                <option value="Round 3">Round 3</option>
-                <option value="Final Round">Final Round</option>
-              </select>
+              <div style={styles.roundBadge}>
+                <span style={styles.roundLabel}>Current Round:</span>
+                <span style={styles.roundValue}>{roundStatus}</span>
+              </div>
             </div>
 
+            {/* Contact */}
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Contact Number</h2>
+              <h2 style={styles.cardTitle}>📞 Quick Contact</h2>
               <div style={styles.contactBox}>
                 <Phone size={18} style={{ color: GAMYAM_COLORS.orange }} />
                 <a 
@@ -610,322 +293,108 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Schedule Interview - ONLY SHOW TO HR */}
-            {user && user.role === 'hr' && (
-              <div style={styles.card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h2 style={{...styles.cardTitle, marginBottom: 0}}>Schedule Interview</h2>
-                  {!isEditing && (
-                    <button 
-                      style={styles.editBtn}
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Edit2 size={16} /> Edit
-                    </button>
-                  )}
-                </div>
-                
-                <label style={styles.label}>Date:</label>
-                <input 
-                  type="date"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  style={styles.input}
-                  disabled={!isEditing}
-                />
-
-                <label style={styles.label}>Time:</label>
-                <input 
-                  type="time"
-                  value={scheduledTime}
-                  onChange={(e) => setScheduledTime(e.target.value)}
-                  style={styles.input}
-                  disabled={!isEditing}
-                />
-
-                <label style={styles.label}>
-                  Select Recruiter/Interviewer: 
-                  {selectedRecruiters.length > 0 && (
-                    <span style={{
-                      marginLeft: '10px',
-                      background: GAMYAM_COLORS.orange,
-                      color: 'white',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      fontWeight: '600'
-                    }}>
-                      {selectedRecruiters.length} selected
-                    </span>
-                  )}
-                </label>
-                <div style={{ position: 'relative' }} className="recruiter-dropdown-container">
-                  <div 
-                    onClick={() => isEditing && setShowRecruiterDropdown(!showRecruiterDropdown)}
-                    style={{
-                      ...styles.input,
-                      cursor: isEditing ? 'pointer' : 'not-allowed',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      minHeight: '42px',
-                      background: isEditing ? GAMYAM_COLORS.darkBg : GAMYAM_COLORS.darkGray
-                    }}
-                  >
-                    <span style={{ color: selectedRecruiters.length ? GAMYAM_COLORS.textLight : GAMYAM_COLORS.textDim }}>
-                      {selectedRecruiters.length 
-                        ? `${selectedRecruiters.length} interviewer(s) selected` 
-                        : '-- Select Interviewers (Max 3) --'}
-                    </span>
-                    <span style={{ fontSize: '12px', color: GAMYAM_COLORS.textDim }}>▼</span>
-                  </div>
-                  
-                  {showRecruiterDropdown && isEditing && (
-                    <div style={styles.dropdownList}>
-                      {recruiters.length === 0 ? (
-                        <div style={{ padding: '20px', textAlign: 'center', color: GAMYAM_COLORS.textDim }}>
-                          No recruiters available
-                        </div>
-                      ) : (
-                        recruiters.map(recruiter => {
-                          const isSelected = selectedRecruiters.some(r => r._id === recruiter._id);
-                          return (
-                            <label 
-                              key={recruiter._id} 
-                              style={{
-                                ...styles.checkboxItem,
-                                background: isSelected ? 'rgba(255, 124, 38, 0.1)' : 'transparent'
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseEnter={(e) => {
-                                if (!isSelected) e.currentTarget.style.background = GAMYAM_COLORS.darkGray;
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isSelected) e.currentTarget.style.background = 'transparent';
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    if (selectedRecruiters.length < 3) {
-                                      setSelectedRecruiters([...selectedRecruiters, recruiter]);
-                                    } else {
-                                      alert('Maximum 3 interviewers allowed');
-                                    }
-                                  } else {
-                                    setSelectedRecruiters(selectedRecruiters.filter(r => r._id !== recruiter._id));
-                                  }
-                                }}
-                                style={{ marginRight: '10px', cursor: 'pointer' }}
-                              />
-                              <span style={{ flex: 1, color: GAMYAM_COLORS.textLight }}>
-                                {recruiter.name}
-                              </span>
-                              <span style={{ fontSize: '12px', color: GAMYAM_COLORS.textDim }}>
-                                {recruiter.email}
-                              </span>
-                            </label>
-                          );
-                        })
-                      )}
-                      
-                    </div>
-                  )}
-                </div>
-
-                {selectedRecruiters.length > 0 && (
-                  <div style={styles.recruiterInfo}>
-                    <p style={{ ...styles.infoText, fontWeight: '600', color: GAMYAM_COLORS.orange }}>
-                      Selected Interviewers:
-                    </p>
-                    {selectedRecruiters.map((rec, idx) => (
-                      <div key={rec._id} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: idx < selectedRecruiters.length - 1 ? `1px solid ${GAMYAM_COLORS.border}` : 'none' }}>
-                        <p style={styles.infoText}>
-                          <strong>{idx + 1}. {rec.name}</strong>
-                        </p>
-                        <p style={styles.infoText}>
-                          📧 {rec.email}
-                        </p>
-                        <p style={styles.infoText}>
-                          📱 {rec.phone || 'Not provided'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <label style={styles.label}>Panel Number:</label>
-                <input 
-                  type="text"
-                  value={panelNumber}
-                  onChange={(e) => setPanelNumber(e.target.value)}
-                  placeholder="Enter panel number"
-                  style={styles.input}
-                  disabled={!isEditing}
-                />
-
-                <label style={styles.label}>Scheduled By:</label>
-                <input 
-                  type="text"
-                  value={scheduledBy}
-                  onChange={(e) => setScheduledBy(e.target.value)}
-                  placeholder="Enter your name"
-                  style={styles.input}
-                  disabled={!isEditing}
-                />
-
-                <label style={styles.label}>Interview Place:</label>
-                <input 
-                  type="text"
-                  value={interviewPlace}
-                  onChange={(e) => setInterviewPlace(e.target.value)}
-                  placeholder="Enter interview location/venue"
-                  style={styles.input}
-                  disabled={!isEditing}
-                />
-
-                {isEditing && (
-                  <button 
-                    style={styles.saveScheduleBtn}
-                    onClick={handleSaveScheduleDetails}
-                    disabled={saving}
-                  >
-                    <Save size={16} /> {saving ? "Saving..." : "Save Schedule Details"}
-                  </button>
-                )}
-              </div>
-            )}
-            {/* ✅ SCREENING ANSWERS - NEW CARD HERE */}
-        <div style={styles.card}>
-          <h2 style={styles.cardTitle}>📋 Screening Questions</h2>
-          
-          {loadingScreening ? (
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              <p style={{ color: GAMYAM_COLORS.textMuted }}>Loading screening answers...</p>
-            </div>
-          ) : screeningAnswers && screeningAnswers.answers && screeningAnswers.answers.length > 0 ? (
-            <div style={styles.feedbackDisplay}>
-              {screeningAnswers.answers.map((item, idx) => (
-                <div 
-                  key={idx} 
-                  style={{ 
-                    marginBottom: '16px', 
-                    paddingBottom: '16px', 
-                    borderBottom: idx < screeningAnswers.answers.length - 1 ? `1px solid ${GAMYAM_COLORS.border}` : 'none' 
-                  }}
-                >
-                  <p style={{ 
-                    color: GAMYAM_COLORS.orange, 
-                    fontWeight: '600', 
-                    marginBottom: '8px', 
-                    fontSize: '14px' 
-                  }}>
-                    Q{idx + 1}. {item.question}
-                  </p>
-                  <p style={{ 
-                    color: GAMYAM_COLORS.textMuted, 
-                    margin: 0, 
-                    fontSize: '14px', 
-                    lineHeight: '1.6',
-                    whiteSpace: 'pre-wrap'
-                  }}>
-                    {item.answer}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '20px' }}>
-              <p style={{ color: GAMYAM_COLORS.textDim, fontSize: '14px' }}>
-                ℹ️ No screening answers submitted yet
-              </p>
-              <button 
-                onClick={loadScreeningAnswers}
-                style={{
-                  marginTop: '10px',
-                  padding: '8px 16px',
-                  background: GAMYAM_COLORS.orange,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: '600'
-                }}
-              >
-                🔄 Retry Loading
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-          {/* Right Section */}
-          <div style={styles.rightSection}>
-            {/* Feedback Section - HR View */}
-            {user && user.role === 'hr' && (
-              <div style={styles.card}>
-                <h2 style={styles.cardTitle}>Feedback for {roundStatus}</h2>
-                
-                {/* Show recruiter's feedback if exists */}
-                {allFeedback && (
-                  <div style={styles.recruiterFeedbackBox}>
-                    <p style={styles.feedbackLabel}>Recruiter's Feedback:</p>
-                    <div style={styles.recruiterFeedbackContent}>
-                      {allFeedback.split('\n').map((line, idx) => (
-                        <p key={idx} style={{ margin: '8px 0', color: GAMYAM_COLORS.textMuted, fontSize: '14px' }}>
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <p style={styles.feedbackLabel}>
-                  {allFeedback ? 'Add Additional HR Feedback:' : 'Write detailed feedback:'}
-                </p>
-                <textarea 
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="Enter detailed feedback about the candidate's performance, technical skills, communication, etc."
-                  style={styles.textarea}
-                  rows={8}
-                />
-                <button 
-                  style={styles.saveBtn}
-                  onClick={handleSaveFeedback}
-                  disabled={saving}
-                >
-                  <Save size={16} /> {saving ? "Saving..." : "Save Feedback & Sync to Sheets"}
-                </button>
-              </div>
-            )}
-
-            {/* Recruiter View - Simple Feedback Box */}
-            {user && user.role === 'recruiter' && (
-              <div style={styles.card}>
-                <h2 style={styles.cardTitle}>Your Feedback for {roundStatus}</h2>
-                <p style={styles.feedbackLabel}>Write your feedback:</p>
-                <textarea 
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="Enter your feedback about the candidate's interview performance..."
-                  style={styles.textarea}
-                  rows={8}
-                />
-                <button 
-                  style={styles.saveBtn}
-                  onClick={handleSaveFeedback}
-                  disabled={saving}
-                >
-                  <Save size={16} /> {saving ? "Saving..." : "Save & Mark Complete"}
-                </button>
-              </div>
-            )}
-
+            {/* Screening Answers */}
             <div style={styles.card}>
-              <h2 style={styles.cardTitle}>All Feedback History</h2>
+              <h2 style={styles.cardTitle}>📋 Screening Questions</h2>
+              
+              {loadingScreening ? (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p style={{ color: GAMYAM_COLORS.textMuted }}>Loading screening answers...</p>
+                </div>
+              ) : screeningAnswers && screeningAnswers.answers && screeningAnswers.answers.length > 0 ? (
+                <div style={styles.feedbackDisplay}>
+                  {screeningAnswers.answers.map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      style={{ 
+                        marginBottom: '16px', 
+                        paddingBottom: '16px', 
+                        borderBottom: idx < screeningAnswers.answers.length - 1 ? `1px solid ${GAMYAM_COLORS.border}` : 'none' 
+                      }}
+                    >
+                      <p style={{ 
+                        color: GAMYAM_COLORS.orange, 
+                        fontWeight: '600', 
+                        marginBottom: '8px', 
+                        fontSize: '14px' 
+                      }}>
+                        Q{idx + 1}. {item.question}
+                      </p>
+                      <p style={{ 
+                        color: GAMYAM_COLORS.textMuted, 
+                        margin: 0, 
+                        fontSize: '14px', 
+                        lineHeight: '1.6',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {item.answer}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '20px' }}>
+                  <p style={{ color: GAMYAM_COLORS.textDim, fontSize: '14px' }}>
+                    ℹ️ No screening answers submitted yet
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Section - Feedback */}
+          <div style={styles.rightSection}>
+            {/* Submit Feedback */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>✍️ Your Interview Feedback</h2>
+              
+              {feedbackSubmitted && (
+                <div style={styles.successBadge}>
+                  <CheckCircle size={18} style={{ color: '#4CAF50' }} />
+                  <span>Feedback submitted successfully!</span>
+                </div>
+              )}
+
+              <p style={styles.feedbackLabel}>
+                Write your feedback for <strong>{roundStatus}</strong>:
+              </p>
+              <textarea 
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                placeholder="Enter your detailed feedback about:
+• Technical skills and knowledge
+• Communication and clarity
+• Problem-solving approach
+• Overall performance
+• Recommendation (Proceed/Hold/Reject)"
+                style={styles.textarea}
+                rows={12}
+                disabled={feedbackSubmitted}
+              />
+              
+              {!feedbackSubmitted && (
+                <button 
+                  style={styles.saveBtn}
+                  onClick={handleSaveFeedback}
+                  disabled={saving}
+                >
+                  <Save size={16} /> {saving ? "Saving..." : "Submit Feedback"}
+                </button>
+              )}
+
+              {feedbackSubmitted && (
+                <button 
+                  style={styles.editBtn}
+                  onClick={() => setFeedbackSubmitted(false)}
+                >
+                  Edit Feedback
+                </button>
+              )}
+            </div>
+
+            {/* All Feedback History */}
+            <div style={styles.card}>
+              <h2 style={styles.cardTitle}>📝 Feedback History</h2>
               <div style={styles.feedbackDisplay}>
                 {allFeedback ? (
                   allFeedback.split('\n').map((line, idx) => (
@@ -939,224 +408,19 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Round Actions - ONLY SHOW TO HR */}
-            {user && user.role === 'hr' && (
-              <div style={styles.card}>
-                <h2 style={styles.cardTitle}>Round Actions</h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {roundStatus !== "Final Round" && (
-                    <button 
-                      style={styles.promoteBtn}
-                      onClick={handlePromoteToNextRound}
-                      disabled={saving}
-                    >
-                      <CheckCircle size={18} /> Promote to Next Round
-                    </button>
-                  )}
-                  
-                  {roundStatus === "Final Round" && (
-                    <button 
-                      style={{...styles.promoteBtn, background: '#2196F3'}}
-                      onClick={handleSendSelectionEmail}
-                      disabled={saving}
-                    >
-                      <Mail size={18} /> Send Selection Email
-                    </button>
-                  )}
-                  
-                  <button 
-                    style={styles.rejectBtn}
-                    onClick={handleRejectCandidate}
-                    disabled={saving}
-                  >
-                    <XCircle size={18} /> Reject Candidate
-                  </button>
-                </div>
-              </div>
-            )}
-            
+            {/* Instructions */}
+            <div style={styles.instructionsCard}>
+              <h3 style={styles.instructionsTitle}>📌 Instructions</h3>
+              <ul style={styles.instructionsList}>
+                <li>Review the candidate's profile and screening answers</li>
+                <li>Conduct the interview at the scheduled time</li>
+                <li>Provide detailed and honest feedback</li>
+                <li>Submit feedback immediately after the interview</li>
+                <li>HR will review and take further action</li>
+              </ul>
+            </div>
           </div>
         </div>
-
-        {/* Custom Email Modal */}
-        {showEmailModal && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <div style={styles.modalHeader}>
-                <h2 style={styles.modalTitle}>Compose Email</h2>
-                <button 
-                  style={styles.closeBtn} 
-                  onClick={() => setShowEmailModal(false)}
-                >
-                  <X size={22} />
-                </button>
-              </div>
-
-              <div style={styles.modalContent}>
-                <div style={styles.modalInfo}>
-                  <strong>To:</strong> {applicant.email}
-                </div>
-
-                <label style={styles.label}>Subject:</label>
-                <input 
-                  type="text"
-                  value={emailData.subject}
-                  onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
-                  placeholder="Enter email subject"
-                  style={styles.input}
-                />
-
-                <label style={styles.label}>Message:</label>
-                <textarea 
-                  value={emailData.body}
-                  onChange={(e) => setEmailData({...emailData, body: e.target.value})}
-                  placeholder="Write your email message here..."
-                  style={styles.textarea}
-                  rows={10}
-                />
-              </div>
-
-              <div style={styles.modalFooter}>
-                <button 
-                  style={styles.sendEmailBtn}
-                  onClick={handleSendEmail}
-                  disabled={sending}
-                >
-                  <Send size={16} /> {sending ? "Sending..." : "Send Email"}
-                </button>
-                <button 
-                  style={styles.cancelBtn}
-                  onClick={() => setShowEmailModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Interview Invitation Modal */}
-        {showInviteModal && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <div style={styles.modalHeader}>
-                <h2 style={styles.modalTitle}>Send Interview Invitation</h2>
-                <button 
-                  style={styles.closeBtn} 
-                  onClick={() => setShowInviteModal(false)}
-                >
-                  <X size={22} />
-                </button>
-              </div>
-
-              <div style={styles.modalContent}>
-                <div style={styles.modalInfo}>
-                  <strong>To:</strong> {applicant.email} & {selectedRecruiters.map(r => r.email).join(', ') || 'No interviewers selected'}
-                </div>
-
-                <div style={styles.invitePreview}>
-                  <h3 style={styles.previewTitle}>Interview Invitation Preview</h3>
-                  <div style={styles.previewItem}>
-                    <strong>Position:</strong> {applicant.jobTitle}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Date:</strong> {scheduledDate ? new Date(scheduledDate).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Time:</strong> {scheduledTime || 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Venue:</strong> {interviewPlace || 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Interviewers:</strong> {selectedRecruiters.map(r => r.name).join(', ') || 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Panel Number:</strong> {panelNumber || 'Not set'}
-                  </div>
-                  <div style={styles.previewItem}>
-                    <strong>Round:</strong> {roundStatus}
-                  </div>
-                </div>
-
-                {(!scheduledDate || !scheduledTime || !interviewPlace || !selectedRecruiters.length || !panelNumber) && (
-                  <div style={styles.warningBox}>
-                    ⚠️ Please fill in all interview details and select at least one interviewer
-                  </div>
-                )}
-              </div>
-
-              <div style={styles.modalFooter}>
-                <button 
-                  style={{...styles.sendEmailBtn, background: '#4CAF50'}}
-                  onClick={handleSendInvitation}
-                  disabled={sending || !scheduledDate || !scheduledTime || !interviewPlace || !selectedRecruiters.length || !panelNumber}
-                >
-                  <Send size={16} /> {sending ? "Sending..." : "Send Invitation"}
-                </button>
-                <button 
-                  style={styles.cancelBtn}
-                  onClick={() => setShowInviteModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Promote to Next Round Modal */}
-        {showPromoteModal && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <div style={styles.modalHeader}>
-                <h2 style={styles.modalTitle}>Promote to Next Round</h2>
-                <button 
-                  style={styles.closeBtn} 
-                  onClick={() => setShowPromoteModal(false)}
-                >
-                  <X size={22} />
-                </button>
-              </div>
-
-              <div style={styles.modalContent}>
-                <div style={styles.promoteInfo}>
-                  <CheckCircle size={48} style={{ color: '#4CAF50', marginBottom: '16px' }} />
-                  <h3 style={{ color: GAMYAM_COLORS.textLight, marginBottom: '12px' }}>
-                    Promote {applicant.name}?
-                  </h3>
-                  <p style={{ color: GAMYAM_COLORS.textMuted, marginBottom: '8px' }}>
-                    Current Round: <strong>{roundStatus}</strong>
-                  </p>
-                  <p style={{ color: GAMYAM_COLORS.textMuted }}>
-                    Next Round: <strong style={{ color: '#4CAF50' }}>
-                      {roundStatus === "Round 1" ? "Round 2" : roundStatus === "Round 2" ? "Round 3" : "Final Round"}
-                    </strong>
-                  </p>
-                  <div style={styles.warningBox}>
-                    📧 An email will be sent to {applicant.email} informing them about the promotion.
-                  </div>
-                </div>
-              </div>
-
-              <div style={styles.modalFooter}>
-                <button 
-                  style={{...styles.sendEmailBtn, background: '#4CAF50'}}
-                  onClick={confirmPromoteToNextRound}
-                  disabled={sending}
-                >
-                  <CheckCircle size={16} /> {sending ? "Promoting..." : "Confirm Promotion"}
-                </button>
-                <button 
-                  style={styles.cancelBtn}
-                  onClick={() => setShowPromoteModal(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -1201,19 +465,6 @@ const styles = {
     color: GAMYAM_COLORS.textLight,
     margin: 0,
     flex: 1,
-  },
-  spreadsheetBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    background: GAMYAM_COLORS.orange,
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 16px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
   },
   mainGrid: {
     display: "grid",
@@ -1304,30 +555,49 @@ const styles = {
     fontSize: "14px",
     fontWeight: "600",
   },
-  actionBtn: {
-    flex: 1,
+  scheduleGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "12px",
+    marginBottom: "16px",
+  },
+  scheduleItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: "12px",
+    padding: "12px",
+    background: GAMYAM_COLORS.darkGray,
+    borderRadius: "8px",
+  },
+  scheduleLabel: {
+    fontSize: "12px",
+    color: GAMYAM_COLORS.textDim,
+    margin: "0 0 4px 0",
+  },
+  scheduleValue: {
+    fontSize: "14px",
+    color: GAMYAM_COLORS.textLight,
+    fontWeight: "600",
+    margin: 0,
+  },
+  roundBadge: {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "8px",
+    gap: "10px",
     padding: "12px",
-    background: GAMYAM_COLORS.orange,
-    color: "#ffffff",
-    border: "none",
+    background: `linear-gradient(135deg, ${GAMYAM_COLORS.orange}22, ${GAMYAM_COLORS.orange}11)`,
     borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
+    border: `1px solid ${GAMYAM_COLORS.orange}`,
   },
-  select: {
-    width: "100%",
-    padding: "10px 12px",
-    background: GAMYAM_COLORS.darkBg,
-    color: GAMYAM_COLORS.textLight,
-    border: `1px solid ${GAMYAM_COLORS.border}`,
-    borderRadius: "6px",
+  roundLabel: {
     fontSize: "14px",
-    cursor: "pointer",
+    color: GAMYAM_COLORS.textMuted,
+  },
+  roundValue: {
+    fontSize: "16px",
+    color: GAMYAM_COLORS.orange,
+    fontWeight: "700",
   },
   contactBox: {
     display: "flex",
@@ -1343,52 +613,18 @@ const styles = {
     color: GAMYAM_COLORS.textLight,
     textDecoration: "none",
   },
-  label: {
-    display: "block",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: GAMYAM_COLORS.textLight,
-    marginBottom: "6px",
-    marginTop: "12px",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    background: GAMYAM_COLORS.darkBg,
-    color: GAMYAM_COLORS.textLight,
-    border: `1px solid ${GAMYAM_COLORS.border}`,
-    borderRadius: "6px",
-    fontSize: "14px",
-    boxSizing: "border-box",
-  },
-  editBtn: {
+  successBadge: {
     display: "flex",
     alignItems: "center",
-    gap: "6px",
-    padding: "6px 12px",
-    background: GAMYAM_COLORS.darkGray,
-    color: GAMYAM_COLORS.textLight,
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "13px",
-    fontWeight: "500",
-  },
-  saveScheduleBtn: {
-    width: "100%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
+    gap: "10px",
     padding: "12px",
-    background: GAMYAM_COLORS.orange,
-    color: "#ffffff",
-    border: "none",
+    background: "rgba(76, 175, 80, 0.1)",
+    border: "1px solid rgba(76, 175, 80, 0.3)",
     borderRadius: "8px",
-    cursor: "pointer",
+    color: "#4CAF50",
     fontSize: "14px",
     fontWeight: "600",
-    marginTop: "16px",
+    marginBottom: "16px",
   },
   feedbackLabel: {
     fontSize: "14px",
@@ -1423,6 +659,18 @@ const styles = {
     fontWeight: "600",
     marginTop: "12px",
   },
+  editBtn: {
+    width: "100%",
+    padding: "10px",
+    background: GAMYAM_COLORS.darkGray,
+    color: GAMYAM_COLORS.textLight,
+    border: "none",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "600",
+    marginTop: "12px",
+  },
   feedbackDisplay: {
     background: GAMYAM_COLORS.darkGray,
     padding: "16px",
@@ -1431,203 +679,25 @@ const styles = {
     maxHeight: "300px",
     overflowY: "auto",
   },
-  promoteBtn: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    padding: "12px",
-    background: "#4CAF50",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  rejectBtn: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    padding: "12px",
-    background: "#ff2727",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  rejectedCard: {
-    background: GAMYAM_COLORS.darkCard,
+  instructionsCard: {
+    background: `linear-gradient(135deg, ${GAMYAM_COLORS.darkCard}, ${GAMYAM_COLORS.darkGray})`,
     borderRadius: "12px",
-    padding: "40px",
-    border: `1px solid ${GAMYAM_COLORS.border}`,
-    textAlign: "center",
-    maxWidth: "600px",
-    margin: "0 auto",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "rgba(0,0,0,0.8)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
     padding: "20px",
-  },
-  modalContainer: {
-    background: GAMYAM_COLORS.darkCard,
-    borderRadius: "12px",
-    width: "90%",
-    maxWidth: "700px",
-    maxHeight: "90vh",
-    display: "flex",
-    flexDirection: "column",
     border: `1px solid ${GAMYAM_COLORS.border}`,
   },
-  modalHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "20px 24px",
-    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
-  },
-  modalTitle: {
-    fontSize: "20px",
-    fontWeight: "700",
-    color: GAMYAM_COLORS.textLight,
-    margin: 0,
-  },
-  closeBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: GAMYAM_COLORS.textDim,
-    padding: "4px",
-  },
-  modalContent: {
-    padding: "24px",
-    overflowY: "auto",
-    flex: 1,
-  },
-  modalInfo: {
-    fontSize: "14px",
-    color: GAMYAM_COLORS.textMuted,
-    marginBottom: "20px",
-    padding: "10px",
-    background: GAMYAM_COLORS.darkGray,
-    borderRadius: "6px",
-  },
-  invitePreview: {
-    background: GAMYAM_COLORS.darkGray,
-    padding: "16px",
-    borderRadius: "8px",
-    marginBottom: "16px",
-  },
-  previewTitle: {
+  instructionsTitle: {
     fontSize: "16px",
     fontWeight: "600",
     color: GAMYAM_COLORS.orange,
     marginTop: 0,
     marginBottom: "12px",
   },
-  previewItem: {
-    fontSize: "14px",
+  instructionsList: {
+    margin: 0,
+    paddingLeft: "20px",
     color: GAMYAM_COLORS.textMuted,
-    marginBottom: "8px",
-  },
-  warningBox: {
-    background: "rgba(255, 193, 7, 0.1)",
-    border: "1px solid rgba(255, 193, 7, 0.3)",
-    color: "#ffc107",
-    padding: "12px",
-    borderRadius: "6px",
     fontSize: "14px",
-    marginTop: "12px",
-  },
-  promoteInfo: {
-    textAlign: "center",
-    padding: "20px",
-  },
-  modalFooter: {
-    padding: "16px 24px",
-    borderTop: `1px solid ${GAMYAM_COLORS.border}`,
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-  },
-  sendEmailBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 20px",
-    background: GAMYAM_COLORS.orange,
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  cancelBtn: {
-    padding: "10px 20px",
-    background: GAMYAM_COLORS.darkGray,
-    color: GAMYAM_COLORS.textLight,
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "14px",
-    fontWeight: "600",
-  },
-  recruiterInfo: {
-    background: GAMYAM_COLORS.darkGray,
-    padding: '12px 16px',
-    borderRadius: '6px',
-    marginTop: '12px',
-  },
-  infoText: {
-    fontSize: '14px',
-    color: GAMYAM_COLORS.textMuted,
-    margin: '6px 0',
-  },
-  dropdownList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    background: GAMYAM_COLORS.darkCard,
-    border: `1px solid ${GAMYAM_COLORS.border}`,
-    borderRadius: '6px',
-    marginTop: '4px',
-    maxHeight: '250px',
-    overflowY: 'auto',
-    zIndex: 1000,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-  },
-  checkboxItem: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '12px 16px',
-    cursor: 'pointer',
-    borderBottom: `1px solid ${GAMYAM_COLORS.border}`,
-    transition: 'background 0.2s ease',
-    gap: '12px',
-  },
-  recruiterFeedbackBox: {
-    background: GAMYAM_COLORS.darkGray,
-    padding: '15px',
-    borderRadius: '8px',
-    marginBottom: '16px',
-    border: `1px solid ${GAMYAM_COLORS.border}`,
-  },
-  recruiterFeedbackContent: {
-    marginTop: '10px',
+    lineHeight: "1.8",
   },
 };
 

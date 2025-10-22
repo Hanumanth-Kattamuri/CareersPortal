@@ -6,7 +6,8 @@ import JobStats from "../components/JobStats";
 import JobTable from "../components/JobTable";
 import JobForm from "../components/JobForm";
 import ApplicationsTable from "../components/ApplicationsTable";
-import RecruiterActionsPage from "../components/RecruiterActionsPage";
+// import RecruiterActionsPage from "../components/RecruiterActionsPage";
+import HRActionsPage from "../components/HRActionsPage";
 
 const GAMYAM_COLORS = {
   darkBg: '#0f0f10',
@@ -126,7 +127,7 @@ function JobAdminPage({ user, onLogout })  {
   // ✅ CHECK THIS PART - If viewing recruiter actions page
   if (selectedApplicant) {
     return (
-      <RecruiterActionsPage 
+      <HRActionsPage 
         applicant={selectedApplicant} 
         onBack={handleBackFromRecruiter} 
         user={user}

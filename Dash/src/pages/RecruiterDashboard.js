@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { LogOut, User } from 'lucide-react';
 import ApplicationsTable from '../components/ApplicationsTable';
+import HRActionsPage from '../components/HRActionsPage';
 import RecruiterActionsPage from '../components/RecruiterActionsPage';
 
 const GAMYAM_COLORS = {
@@ -19,7 +20,7 @@ function RecruiterDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [screeningAnswers, setScreeningAnswers] = useState({});
-const [loadingScreening, setLoadingScreening] = useState({});
+  const [loadingScreening, setLoadingScreening] = useState({});
 
   useEffect(() => {
     fetchMyApplications();
@@ -39,37 +40,48 @@ const [loadingScreening, setLoadingScreening] = useState({});
   };
 
   const handleNavigateToRecruiter = (applicant) => {
-  setSelectedApplicant(applicant);
-};
-const fetchScreeningAnswers = async (applicationId) => {
-  try {
-    setLoadingScreening(prev => ({ ...prev, [applicationId]: true }));
-    const response = await axios.get(`http://localhost:5000/api/screening-answers/${applicationId}`);
-    setScreeningAnswers(prev => ({ ...prev, [applicationId]: response.data }));
-  } catch (err) {
-    if (err.response?.status !== 404) {
-      console.error('Error loading screening answers:', err);
+    setSelectedApplicant(applicant);
+  };
+
+  const fetchScreeningAnswers = async (applicationId) => {
+    try {
+      setLoadingScreening(prev => ({ ...prev, [applicationId]: true }));
+      const response = await axios.get(`http://localhost:5000/api/screening-answers/${applicationId}`);
+      setScreeningAnswers(prev => ({ ...prev, [applicationId]: response.data }));
+    } catch (err) {
+      if (err.response?.status !== 404) {
+        console.error('Error loading screening answers:', err);
+      }
+    } finally {
+      setLoadingScreening(prev => ({ ...prev, [applicationId]: false }));
     }
-  } finally {
-    setLoadingScreening(prev => ({ ...prev, [applicationId]: false }));
+  };
+
+  const handleBackFromRecruiter = () => {
+    setSelectedApplicant(null);
+    fetchMyApplications();
+  };
+
+  // Route to appropriate page based on user role
+  if (selectedApplicant) {
+    if (user.role === 'hr') {
+      return (
+        <HRActionsPage 
+          applicant={selectedApplicant} 
+          onBack={handleBackFromRecruiter} 
+          user={user}
+        />
+      );
+    } else if (user.role === 'recruiter') {
+      return (
+        <RecruiterActionsPage 
+          applicant={selectedApplicant} 
+          onBack={handleBackFromRecruiter} 
+          user={user}
+        />
+      );
+    }
   }
-};
-
-const handleBackFromRecruiter = () => {
-  setSelectedApplicant(null);
-  fetchMyApplications();
-};
-
-// CHECK THIS PART:
-if (selectedApplicant) {
-  return (
-    <RecruiterActionsPage 
-      applicant={selectedApplicant} 
-      onBack={handleBackFromRecruiter} 
-      user={user} // ← MAKE SURE THIS IS HERE
-    />
-  );
-}
 
   return (
     <div style={styles.page}>
@@ -80,7 +92,9 @@ if (selectedApplicant) {
             <User size={24} style={{ color: GAMYAM_COLORS.orange }} />
             <div>
               <h2 style={styles.userName}>{user.name}</h2>
-              <p style={styles.userRole}>Recruiter Dashboard</p>
+              <p style={styles.userRole}>
+                {user.role === 'hr' ? 'HR Dashboard' : 'Recruiter Dashboard'}
+              </p>
             </div>
           </div>
           <button style={styles.logoutBtn} onClick={onLogout}>
@@ -121,19 +135,20 @@ if (selectedApplicant) {
           <div style={styles.emptyState}>
             <p style={styles.emptyText}>No applications assigned to you yet.</p>
             <p style={styles.emptySubtext}>
-              HR will assign candidates to you when interviews are scheduled.
+              {user.role === 'hr' 
+                ? 'You will see all applications here once candidates apply.' 
+                : 'HR will assign candidates to you when interviews are scheduled.'}
             </p>
           </div>
         ) : (
           <ApplicationsTable 
-  applications={applications}
-  onRefresh={fetchMyApplications}
-  onNavigateToRecruiter={handleNavigateToRecruiter}
-  screeningAnswers={screeningAnswers}
-  loadingScreening={loadingScreening}
-  onFetchScreening={fetchScreeningAnswers}
-/>
-
+            applications={applications}
+            onRefresh={fetchMyApplications}
+            onNavigateToRecruiter={handleNavigateToRecruiter}
+            screeningAnswers={screeningAnswers}
+            loadingScreening={loadingScreening}
+            onFetchScreening={fetchScreeningAnswers}
+          />
         )}
       </div>
     </div>
