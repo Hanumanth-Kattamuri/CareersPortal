@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Mail, Lock, User, Phone } from 'lucide-react';
+import ResetPasswordModal from '../components/ResetPasswordModal';
 
 const GAMYAM_COLORS = {
   darkBg: '#0f0f10',
@@ -22,6 +23,8 @@ function LoginPage({ onLogin }) {
     phone: ''
   });
   const [loading, setLoading] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+const [resetEmail, setResetEmail] = useState('');
 
   const handleLogin = async (e) => {
   e.preventDefault();
@@ -66,6 +69,30 @@ function LoginPage({ onLogin }) {
     }
     setLoading(false);
   };
+
+  const handleForgotPassword = async (email) => {
+  if (!email) {
+    alert('Please enter your email address');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const endpoint = userType === 'hr' 
+      ? 'http://localhost:5000/api/auth/hr-forgot-password'
+      : 'http://localhost:5000/api/auth/recruiter-forgot-password';
+
+    const response = await axios.post(endpoint, { email });
+
+    if (response.data.success) {
+      setResetEmail(email);
+      setShowResetModal(true);
+    }
+  } catch (err) {
+    alert(err.response?.data?.error || 'Failed to send reset link');
+  }
+  setLoading(false);
+};
 
   return (
     <div style={styles.page}>
@@ -149,6 +176,22 @@ function LoginPage({ onLogin }) {
             <button type="submit" style={styles.submitBtn} disabled={loading}>
               {loading ? 'Please wait...' : (isRegistering ? 'Register' : 'Login')}
             </button>
+            {!isRegistering && (
+  <button
+    type="button"
+    style={styles.forgotPasswordBtn}
+    onClick={() => {
+      const email = formData.email;
+      if (!email) {
+        alert('Please enter your email address first');
+        return;
+      }
+      handleForgotPassword(email);
+    }}
+  >
+    Forgot Password?
+  </button>
+)}
           </form>
 
           {userType === 'recruiter' && (
@@ -172,6 +215,17 @@ function LoginPage({ onLogin }) {
               <p>Password: hr123456</p>
             </div>
           )}
+          {showResetModal && (
+  <ResetPasswordModal
+    email={resetEmail}
+    userType={userType}
+    onClose={() => setShowResetModal(false)}
+    onSuccess={() => {
+      setShowResetModal(false);
+      setFormData({ email: '', password: '', name: '', phone: '' });
+    }}
+  />
+)}
         </div>
       </div>
     </div>
@@ -286,6 +340,18 @@ const styles = {
     color: GAMYAM_COLORS.textMuted,
     textAlign: 'center',
   },
+  forgotPasswordBtn: {
+  width: '100%',
+  padding: '10px',
+  background: 'transparent',
+  color: GAMYAM_COLORS.orange,
+  border: 'none',
+  cursor: 'pointer',
+  fontSize: '13px',
+  textDecoration: 'underline',
+  marginTop: '10px',
+  textAlign: 'right',
+},
 };
 
 export default LoginPage;

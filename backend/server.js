@@ -294,12 +294,13 @@ const Application = mongoose.model('Application', applicationSchema);
 
 // ==================== USER SCHEMAS ====================
 
-// HR Admin Schema (hardcoded credentials)
 const hrAdminSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, default: 'hr' },
-  name: { type: String, required: true }
+  name: { type: String, required: true },
+  resetCode: { type: String },
+  resetExpiry: { type: Number }
 });
 
 const HRAdmin = mongoose.model('HRAdmin', hrAdminSchema);
@@ -311,7 +312,9 @@ const recruiterSchema = new mongoose.Schema({
   password: { type: String, required: true },
   phone: { type: String },
   role: { type: String, default: 'recruiter' },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  resetCode: { type: String },
+  resetExpiry: { type: Number }
 });
 
 const Recruiter = mongoose.model('Recruiter', recruiterSchema);
@@ -2145,6 +2148,193 @@ app.get('/api/screening-answers', async (req, res) => {
   } catch (err) {
     console.error('Error fetching all screening answers:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Forgot Password - HR
+app.post('/api/auth/hr-forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const hrAdmin = await HRAdmin.findOne({ email });
+    
+    if (!hrAdmin) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+    
+    // Generate random 6-digit reset code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpiry = Date.now() + 3600000; // 1 hour
+    
+    // Store reset code (you'll need to add these fields to schema)
+    hrAdmin.resetCode = resetCode;
+    hrAdmin.resetExpiry = resetExpiry;
+    await hrAdmin.save();
+    
+    // Send email with reset code
+    const mailOptions = {
+      from: 'naghanu07@gmail.com',
+      to: email,
+      subject: 'Password Reset Code - Gamyam Portal',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; margin: 0; padding: 20px; }
+            .container { max-width: 500px; margin: 0 auto; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%); padding: 30px; text-align: center; }
+            .header h1 { margin: 0; color: #0a0a0a; font-size: 24px; }
+            .content { padding: 30px; color: #e0e0e0; }
+            .code-box { background: #2a2a2a; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+            .code { font-size: 32px; font-weight: 700; color: #FF6B35; letter-spacing: 5px; }
+            .footer { background: #0a0a0a; padding: 20px; text-align: center; font-size: 12px; color: #888; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔐 Password Reset</h1>
+            </div>
+            <div class="content">
+              <p>Hello <strong>${hrAdmin.name}</strong>,</p>
+              <p>You requested to reset your password. Use the code below:</p>
+              <div class="code-box">
+                <div class="code">${resetCode}</div>
+              </div>
+              <p><strong>This code expires in 1 hour.</strong></p>
+              <p>If you didn't request this, please ignore this email.</p>
+            </div>
+            <div class="footer">
+              <p>Gamyam HR Portal</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    
+    res.json({ 
+      success: true, 
+      message: 'Reset code sent to your email' 
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// Forgot Password - Recruiter
+app.post('/api/auth/recruiter-forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    const recruiter = await Recruiter.findOne({ email });
+    
+    if (!recruiter) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+    
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetExpiry = Date.now() + 3600000;
+    
+    recruiter.resetCode = resetCode;
+    recruiter.resetExpiry = resetExpiry;
+    await recruiter.save();
+    
+    const mailOptions = {
+      from: 'naghanu07@gmail.com',
+      to: email,
+      subject: 'Password Reset Code - Gamyam Portal',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; margin: 0; padding: 20px; }
+            .container { max-width: 500px; margin: 0 auto; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden; }
+            .header { background: linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%); padding: 30px; text-align: center; }
+            .header h1 { margin: 0; color: #0a0a0a; font-size: 24px; }
+            .content { padding: 30px; color: #e0e0e0; }
+            .code-box { background: #2a2a2a; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
+            .code { font-size: 32px; font-weight: 700; color: #FF6B35; letter-spacing: 5px; }
+            .footer { background: #0a0a0a; padding: 20px; text-align: center; font-size: 12px; color: #888; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🔐 Password Reset</h1>
+            </div>
+            <div class="content">
+              <p>Hello <strong>${recruiter.name}</strong>,</p>
+              <p>You requested to reset your password. Use the code below:</p>
+              <div class="code-box">
+                <div class="code">${resetCode}</div>
+              </div>
+              <p><strong>This code expires in 1 hour.</strong></p>
+              <p>If you didn't request this, please ignore this email.</p>
+            </div>
+            <div class="footer">
+              <p>Gamyam Recruiter Portal</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    
+    res.json({ 
+      success: true, 
+      message: 'Reset code sent to your email' 
+    });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// Verify Reset Code and Update Password
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, resetCode, newPassword, userType } = req.body;
+    
+    const Model = userType === 'hr' ? HRAdmin : Recruiter;
+    const user = await Model.findOne({ email });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (!user.resetCode || !user.resetExpiry) {
+      return res.status(400).json({ error: 'No reset request found' });
+    }
+    
+    if (Date.now() > user.resetExpiry) {
+      return res.status(400).json({ error: 'Reset code expired' });
+    }
+    
+    if (user.resetCode !== resetCode) {
+      return res.status(400).json({ error: 'Invalid reset code' });
+    }
+    
+    // Update password
+    user.password = newPassword;
+    user.resetCode = undefined;
+    user.resetExpiry = undefined;
+    await user.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Password reset successfully' 
+    });
+  } catch (err) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 // Start server
